@@ -1,0 +1,1697 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate" />
+<meta http-equiv="Pragma" content="no-cache" />
+<meta http-equiv="Expires" content="0" />
+<title>Lead Detail | Insurance Lead Engine</title>
+<link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&family=Inter:wght@400;500;600;700;800&family=Sora:wght@600;700&family=JetBrains+Mono:wght@500;600&display=swap" rel="stylesheet" />
+<style>
+:root {
+  /* Core brand palette */
+  --obsidian:        #0A1128;
+  --vanguard:        #1E3A8A;
+  --pristine:        #F8FAFC;
+  --slate-cool:      #64748B;
+  --paybrix-red:     #DC2626;
+  --paybrix-red-bevel:#E87070;
+  --mint-fintech:    #10B981;
+  --stall-gold:      #38BDF8;
+  --responsive-sky:  #38BDF8;
+  --telclic-cyan:    #06B6D4;
+
+  /* Paybrix theme tokens — dark mode (verbatim sremium-brand2) */
+  --bg-body:            #0A1128;
+  --bg-grid:            rgba(30, 58, 138, 0.12);
+  --text-base:          #F8FAFC;
+  --text-muted:         #64748B;
+  --bg-panel:           rgba(10, 17, 40, 0.70);
+  --border-panel:       rgba(255, 255, 255, 0.08);
+  --shadow-panel:       0 8px 32px 0 rgba(0, 0, 0, 0.3);
+  --bg-panel-light:     rgba(255, 255, 255, 0.02);
+  --border-panel-light: rgba(255, 255, 255, 0.05);
+
+  /* Structural aliases */
+  --bg:              #0A1128;
+  --bg-elevated:     #0d1638;
+  --bg-elevated-2:   #131c42;
+  --border:          #29346b;
+  --border-soft:     rgba(255, 255, 255, 0.08);
+  --text-primary:    #F8FAFC;
+  --text-secondary:  #a6acce;
+
+  /* Status / semantic colours */
+  --amber:       var(--blue);
+  --amber-dim:   var(--blue-dim);
+  --teal:        #10B981;
+  --teal-dim:    rgba(16, 185, 129, 0.12);
+  --teal-deep:   #0d9488;
+  --coral:       #DC2626;
+  --coral-deep:  #E87070;
+  --coral-dim:   rgba(220, 38, 38, 0.14);
+  --coral-glow:  rgba(220, 38, 38, 0.35);
+  --vanguard-dim:rgba(30, 58, 138, 0.14);
+  --mint:        #10B981;
+  --mint-dim:    rgba(16, 185, 129, 0.14);
+  --blue:        #38BDF8;
+  --blue-dim:    rgba(56, 189, 248, 0.12);
+  --rose:        #fb7185;
+  --rose-dim:    rgba(251, 113, 133, 0.12);
+  --blush:       rgba(220, 38, 38, 0.06);
+
+  /* Geometry — rounded corners matching PayBrix spec */
+  --radius-sm:  4px;
+  --radius-md:  8px;
+  --radius-lg:  12px;
+  --radius-xl:  16px;
+
+  /* Typography */
+  --font-display: 'Plus Jakarta Sans', 'Inter', sans-serif;
+  --font-body:    'Inter', system-ui, sans-serif;
+  --font-mono:    'JetBrains Mono', monospace;
+}
+*,*::before,*::after{ box-sizing:border-box; }
+body{
+  margin:0;
+  background-color:var(--bg-body);
+  background-image:radial-gradient(var(--bg-grid) 1.5px, transparent 1.5px);
+  background-size:32px 32px;
+  color:var(--text-primary);
+  font-family:var(--font-body); font-size:14px; line-height:1.5;
+  -webkit-font-smoothing:antialiased;
+  overflow-x:hidden;
+  transition:background-color 0.25s ease, color 0.25s ease;
+  /* Global safety net: any long unbroken string wraps instead of overflowing */
+  overflow-wrap:anywhere;
+}
+
+/* Light Theme Override — verbatim sremium-brand2 light values */
+body.light-theme {
+  --bg-body:            #F8FAFC;
+  --bg-grid:            rgba(30, 58, 138, 0.06);
+  --text-base:          #0A1128;
+  --text-muted:         #475569;
+  --bg-panel:           rgba(255, 255, 255, 0.85);
+  --border-panel:       rgba(10, 17, 40, 0.08);
+  --shadow-panel:       0 8px 32px 0 rgba(10, 17, 40, 0.06);
+  --bg-panel-light:     rgba(10, 17, 40, 0.02);
+  --border-panel-light: rgba(10, 17, 40, 0.05);
+  /* Full structural cascade */
+  --bg:                 #F8FAFC;
+  --bg-elevated:        #FFFFFF;
+  --bg-elevated-2:      #F1F5F9;
+  --border:             rgba(10, 17, 40, 0.12);
+  --border-soft:        rgba(10, 17, 40, 0.07);
+  --text-primary:       #0A1128;
+  --text-secondary:     #334155;
+  /* Light mode keeps the same green (teal/mint) as dark mode — no longer
+     forced to Vanguard blue. */
+  /* Dim adjustments for light */
+  --coral-dim:          rgba(220, 38, 38, 0.07);
+  --coral-glow:         rgba(220, 38, 38, 0.15);
+  --teal-dim:           rgba(16, 185, 129, 0.08);
+  --rose-dim:           rgba(251, 113, 133, 0.08);
+  --blue-dim:           rgba(56, 189, 248, 0.08);
+  --vanguard-dim:       rgba(30, 58, 138, 0.06);
+  --mint-dim:           rgba(16, 185, 129, 0.08);
+  --blush:              rgba(220, 38, 38, 0.04);
+}
+
+h1,h2,h3,h4,.font-display { font-family:var(--font-display); }
+
+/* Glow sphere decorators */
+.glow-sphere {
+  position:fixed; border-radius:50%; filter:blur(80px);
+  opacity:0.08; z-index:0; pointer-events:none;
+}
+
+/* Glassmorphism panels */
+.glass-panel {
+  background:var(--bg-panel); border:1px solid var(--border-panel);
+  box-shadow:var(--shadow-panel); backdrop-filter:blur(16px);
+  -webkit-backdrop-filter:blur(16px);
+  transition:background 0.3s ease, border-color 0.3s ease;
+}
+.glass-panel-light {
+  background:var(--bg-panel-light); border:1px solid var(--border-panel-light);
+  transition:background 0.3s ease, border-color 0.3s ease;
+}
+a{ color:inherit; text-decoration:none; }
+button{ cursor:pointer; font-family:inherit; color:inherit; background:none; border:none; }
+:focus-visible{ outline:2px solid var(--amber); outline-offset:2px; }
+.mono{ font-family:'JetBrains Mono',monospace; }
+
+/* Instant theme swap — suppresses all transitions for one frame */
+body.theme-switching,
+body.theme-switching *,
+body.theme-switching *::before,
+body.theme-switching *::after {
+  transition: none !important;
+  animation-duration: 0s !important;
+}
+
+.topbar{ border-bottom:1px solid var(--border-panel); position:sticky; top:0; z-index:60;
+  background:var(--bg-panel); backdrop-filter:blur(16px); -webkit-backdrop-filter:blur(16px);
+  box-shadow:var(--shadow-panel); transition:background 0.3s ease, border-color 0.3s ease; }
+.topbar-inner{ max-width:1280px; margin:0 auto; padding:12px 24px; display:flex; align-items:center; gap:14px; }
+
+/* Brand mark — hex seal */
+.brand-mark {
+  width: 36px; height: 36px; flex-shrink: 0;
+  display: flex; align-items: center; justify-content: center;
+}
+.brand-text { display: flex; flex-direction: column; gap: 1px; }
+.brand-overline {
+  font-size: 9px; font-family: 'JetBrains Mono', monospace; font-weight: 700;
+  text-transform: uppercase; letter-spacing: 0.12em;
+  color: var(--paybrix-red); line-height: 1;
+}
+.brand-name-lead {
+  font-weight: 800; font-size: 14px; letter-spacing: -0.01em;
+  color: var(--text-primary); font-family: 'Plus Jakarta Sans', 'Inter', sans-serif;
+  line-height: 1.2;
+}
+.brand-sub-lead { font-size: 10px; color: var(--text-muted); letter-spacing: 0.01em; }
+.back-link{ display:flex; align-items:center; gap:6px; color:var(--text-secondary); font-size:13px; }
+.back-link:hover{ color:var(--text-primary); }
+.topbar-sep{ color:var(--border); }
+.brand-label{ font-family:'Sora',sans-serif; font-size:13px; font-weight:700; letter-spacing:.2px; }
+
+.layout{ max-width:1280px; margin:0 auto; padding:28px 24px 80px; display:grid; grid-template-columns:300px 1fr; gap:24px; align-items:start; }
+@media (max-width:900px){ .layout{ grid-template-columns:1fr; } }
+
+/* ---------- SIDEBAR ---------- */
+.sidebar{ position:sticky; top:64px; display:flex; flex-direction:column; gap:16px; }
+@media (max-width:900px){ .sidebar{ position:static; } }
+
+.card{
+  background:var(--bg-panel);
+  border:1px solid var(--border-panel);
+  box-shadow:var(--shadow-panel);
+  backdrop-filter:blur(16px);
+  -webkit-backdrop-filter:blur(16px);
+  border-radius:0;
+  padding:22px;
+  transition:background 0.3s ease, border-color 0.3s ease, box-shadow 0.3s ease;
+}
+
+/* Highlight variant — cards holding genuinely company-specific,
+   conversation-ready content (Personalisation, Opening Angle). A thin
+   accent bar makes them read as "the interesting part" at a glance,
+   instead of blending into the registry-fact cards around them. */
+.card-highlight{ position:relative; }
+.card-highlight::before{ content:''; position:absolute; top:0; left:0; right:0; height:3px; background:var(--blue); opacity:.85; }
+
+/* Secondary variant — supporting/compliance evidence (Research Coverage,
+   Digital Presence). Still fully present and unabridged, just visually
+   quieter: smaller heading, tighter padding, so a reader's eye lands on
+   the distinctive content first and treats this as backup to verify
+   against, not the headline. */
+.card-secondary{ padding:16px 18px; }
+.card-secondary .section-title{ margin-bottom:12px; }
+.card-secondary .section-title h2{ font-size:12.5px; color:var(--text-secondary); }
+.card-secondary .section-icon{ width:20px; height:20px; }
+.card-secondary .section-role{ font-size:10px; color:var(--text-muted); margin-left:auto; text-transform:uppercase; letter-spacing:.04em; }
+.card-secondary .check-list li{ font-size:12px; }
+
+.id-card .id-name{ font-family:'Sora',sans-serif; font-size:18px; font-weight:700; line-height:1.3; margin:0 0 4px; }
+.id-card .id-trading{ font-size:12px; color:var(--text-muted); margin-bottom:12px; }
+.badge{ display:inline-flex; align-items:center; gap:5px; font-size:10px; font-weight:700; letter-spacing:.3px; text-transform:uppercase; padding:3px 9px; border-radius:999px; }
+.badge-verified{ color:var(--teal); background:var(--teal-dim); }
+.id-facts{ margin-top:16px; display:flex; flex-direction:column; gap:9px; padding-top:16px; border-top:1px solid var(--border-soft); }
+.id-fact{ display:flex; justify-content:space-between; gap:8px; font-size:12px; }
+.id-fact-label{ color:var(--text-muted); }
+.id-fact-value{ color:var(--text-primary); font-weight:500; text-align:right; }
+.id-website{ margin-top:14px; }
+.id-website a{ font-size:12px; color:var(--amber); display:flex; align-items:center; gap:5px; }
+.id-website a:hover{ text-decoration:underline; }
+.no-website-box{ margin-top:14px; padding:9px 11px; border:1px dashed var(--border); border-radius:var(--radius-sm); font-size:11.5px; color:var(--text-muted); display:flex; align-items:center; gap:7px; }
+
+/* Confidence ring */
+.confidence-ring-wrap{ display:flex; align-items:center; gap:14px; margin-bottom:4px; margin-top:16px; }
+.confidence-ring{ flex-shrink:0; }
+.confidence-num{ font-family:'JetBrains Mono',monospace; font-size:22px; font-weight:600; }
+.confidence-label{ font-size:11px; color:var(--text-muted); margin-top:2px; }
+
+/* Fit ring */
+.fit-ring-wrap{ display:flex; align-items:center; gap:14px; margin-bottom:4px; }
+.fit-ring{ flex-shrink:0; }
+.fit-ring-num{ font-family:'JetBrains Mono',monospace; font-size:22px; font-weight:600; }
+.fit-ring-label{ font-size:11px; color:var(--text-muted); margin-top:2px; }
+
+/* Scorecard bars */
+.scorecard-title{ font-family:'Sora',sans-serif; font-size:12px; font-weight:700; text-transform:uppercase; letter-spacing:.4px; color:var(--text-muted); margin-bottom:14px; }
+.score-row{ margin-bottom:13px; }
+.score-row:last-child{ margin-bottom:0; }
+.score-row-top{ display:flex; justify-content:space-between; font-size:12px; margin-bottom:5px; }
+.score-row-label{ color:var(--text-secondary); }
+.score-row-level{ font-weight:700; font-size:11px; }
+.score-track{ height:5px; border-radius:0px; background:rgba(255,255,255,0.06); overflow:hidden; }
+.score-fill{ height:100%; border-radius:0px; }
+.lvl-high .score-row-level{ color:var(--teal); } .lvl-high .score-fill{ background:var(--teal); }
+.lvl-medium .score-row-level{ color:var(--amber); } .lvl-medium .score-fill{ background:var(--amber); }
+.lvl-low .score-row-level{ color:var(--rose); } .lvl-low .score-fill{ background:var(--rose); }
+.score-row-reason{ font-size:11px; color:var(--text-muted); margin-top:5px; line-height:1.4; }
+
+/* ---------- MAIN CONTENT ---------- */
+.content{ display:flex; flex-direction:column; gap:16px; }
+.section-title{ display:flex; align-items:center; gap:10px; margin-bottom:16px; }
+.section-icon{ width:26px; height:26px; border-radius:var(--radius-sm); display:flex; align-items:center; justify-content:center; flex-shrink:0; }
+.section-title h2{ font-family:'Sora',sans-serif; font-size:14px; font-weight:700; margin:0; }
+.section-sub{ font-size:11px; color:var(--text-muted); margin-left:auto; }
+
+.exec-headline{ font-size:11px; font-weight:700; letter-spacing:.3px; text-transform:uppercase; margin-bottom:10px; }
+.exec-text{ font-size:14px; color:var(--text-secondary); line-height:1.7; margin:0; }
+.exec-text strong{ color:var(--text-primary); font-weight:600; }
+
+.two-col{ display:grid; grid-template-columns:1fr 1fr; gap:20px; }
+@media (max-width:640px){ .two-col{ grid-template-columns:1fr; } }
+.list-title{ font-size:11px; font-weight:700; text-transform:uppercase; letter-spacing:.3px; margin-bottom:10px; display:flex; align-items:center; gap:6px; }
+.list-title.pos{ color:var(--teal); } .list-title.neg{ color:var(--text-muted); }
+.check-list{ list-style:none; margin:0; padding:0; display:flex; flex-direction:column; gap:8px; }
+.check-list li{ font-size:13px; color:var(--text-secondary); display:flex; align-items:flex-start; gap:8px; }
+.check-yes{ color:var(--teal); flex-shrink:0; margin-top:1px; }
+.check-no{ color:var(--text-muted); flex-shrink:0; margin-top:1px; }
+.check-no + span{ color:var(--text-muted); }
+
+.gap-box{ background:rgba(255,255,255,0.03); border:1px dashed var(--border); border-radius:var(--radius-md); padding:16px; text-align:center; }
+.gap-box svg{ color:var(--text-muted); margin-bottom:8px; display:block; margin-left:auto; margin-right:auto; }
+.gap-box p{ margin:0; font-size:13px; color:var(--text-muted); }
+.gap-box p.small{ font-size:11.5px; margin-top:6px; }
+
+.contact-grid{ display:grid; grid-template-columns:1fr 1fr; gap:14px; }
+@media (max-width:640px){ .contact-grid{ grid-template-columns:1fr; } }
+
+/* ── Contact card: identity header + icon-forward channel chips ── */
+.ct-card{
+  position:relative; background:var(--bg-panel-light); border:1px solid var(--border-panel);
+  border-radius:var(--radius-lg); padding:16px 16px 14px; overflow:hidden;
+  transition:transform .18s ease, border-color .18s ease, box-shadow .18s ease;
+}
+.ct-card:hover{ transform:translateY(-2px); border-color:var(--tier-color); box-shadow:0 10px 24px -12px rgba(0,0,0,0.45); }
+.ct-card::before{ content:''; position:absolute; top:0; left:0; right:0; height:3px; background:var(--tier-color); opacity:.85; }
+.ct-recommended{ position:absolute; top:12px; right:14px; font-size:9px; font-weight:700; letter-spacing:.05em; text-transform:uppercase; color:var(--tier-color); }
+.ct-header{ display:flex; align-items:flex-start; gap:11px; margin-top:2px; }
+.ct-avatar{
+  flex-shrink:0; width:36px; height:36px; border-radius:50%; display:flex; align-items:center; justify-content:center;
+  font-family:var(--font-display); font-weight:700; font-size:13px; color:var(--tier-color);
+  background:var(--bg-panel); border:1.5px solid var(--tier-color);
+}
+.ct-id{ min-width:0; flex:1; }
+.ct-name{ font-weight:700; font-size:14px; line-height:1.3; overflow-wrap:anywhere; }
+.ct-role{ font-size:11.5px; color:var(--text-muted); margin-top:1px; }
+.ct-overall{ display:flex; align-items:center; gap:5px; font-size:10px; font-weight:700; text-transform:uppercase; letter-spacing:.03em; color:var(--tier-color); white-space:nowrap; margin-top:2px; cursor:default; }
+.ct-overall-dot{ width:6px; height:6px; border-radius:50%; background:var(--tier-color); flex-shrink:0; }
+.ct-detail{ font-size:12px; color:var(--text-secondary); margin-top:10px; padding-top:10px; border-top:1px solid var(--border-panel-light); }
+
+.ct-channels{ margin-top:12px; display:flex; flex-direction:column; gap:6px; }
+.ct-channel{
+  display:flex; align-items:center; gap:8px; padding:7px 9px; border-radius:var(--radius-sm);
+  background:var(--bg-panel); border:1px solid var(--border-panel-light); font-size:12px;
+}
+.ct-channel.unavailable{ border-style:dashed; opacity:.6; }
+.ct-channel-icon{ flex-shrink:0; display:flex; color:var(--channel-color, var(--text-muted)); }
+.ct-channel-val{ flex:1; min-width:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; color:var(--text-primary); font-family:'JetBrains Mono',monospace; font-size:11.5px; }
+.ct-channel.unavailable .ct-channel-val{ color:var(--text-muted); font-family:inherit; font-style:italic; }
+.ct-channel-val a{ color:var(--blue); text-decoration:none; }
+.ct-channel-val a:hover{ text-decoration:underline; }
+.ct-why{ flex-shrink:0; width:16px; height:16px; border-radius:50%; border:1px solid var(--border-panel); background:none; color:var(--text-muted); font-size:9.5px; font-weight:700; cursor:pointer; line-height:1; display:flex; align-items:center; justify-content:center; transition:color .15s, border-color .15s; }
+.ct-why:hover{ color:var(--text-primary); border-color:var(--text-muted); }
+.ct-reason{ display:none; font-size:11px; color:var(--text-muted); line-height:1.5; padding:7px 9px 2px 33px; margin-top:-2px; }
+.ct-reason.open{ display:block; }
+
+.recipient-box{ margin-top:16px; padding:14px 16px; background:var(--amber-dim); border:1px solid rgba(56,189,248,0.25); border-radius:var(--radius-md); }
+.recipient-box .rlabel{ font-size:10px; font-weight:700; text-transform:uppercase; letter-spacing:.3px; color:var(--amber); margin-bottom:5px; }
+.recipient-box .rvalue{ font-size:13px; color:var(--text-primary); margin-bottom:8px; }
+.recipient-box .rreason{ font-size:11.5px; color:var(--text-muted); line-height:1.5; }
+
+.office-row{ display:flex; align-items:flex-start; gap:10px; margin-top:14px; padding-top:14px; border-top:1px solid var(--border-soft); font-size:12.5px; color:var(--text-secondary); line-height:1.5; }
+.office-row svg{ flex-shrink:0; margin-top:2px; color:var(--text-muted); }
+
+.persona-box{ border-radius:var(--radius-md); padding:14px; }
+.persona-box.ref{ background:var(--teal-dim); border:1px solid rgba(52,211,153,0.25); }
+.persona-box.avoid{ background:var(--rose-dim); border:1px solid rgba(251,113,133,0.25); }
+.persona-box ul{ margin:0; padding-left:18px; font-size:12.5px; color:var(--text-secondary); line-height:1.8; }
+
+.discovery-list{ list-style:none; margin:0; padding:0; counter-reset:q; }
+.discovery-list li{ counter-increment:q; font-size:13.5px; color:var(--text-secondary); padding-left:28px; position:relative; margin-bottom:12px; line-height:1.5; }
+.discovery-list li::before{ content:counter(q); position:absolute; left:0; top:0; width:19px; height:19px; border-radius:var(--radius-sm); background:var(--amber-dim); color:var(--amber); font-family:'JetBrains Mono',monospace; font-size:11px; font-weight:600; display:flex; align-items:center; justify-content:center; }
+
+.angle-box{ background:var(--amber-dim); border:1px solid rgba(56,189,248,0.25); border-radius:var(--radius-md); padding:16px; }
+.angle-box p{ margin:0; font-size:13.5px; color:var(--text-primary); line-height:1.6; }
+
+/* AI Sales Assistant collapsible */
+.assistant-card{ padding:0; overflow:hidden; }
+.assistant-toggle{ width:100%; display:flex; align-items:center; gap:10px; padding:20px 22px; text-align:left; }
+.assistant-toggle .section-icon{ background:var(--coral-dim); }
+.assistant-toggle h2{ font-family:'Sora',sans-serif; font-size:14px; font-weight:700; margin:0; }
+.assistant-toggle .hint{ font-size:11px; color:var(--text-muted); margin-left:2px; }
+.assistant-chevron{ margin-left:auto; transition:transform .2s; color:var(--text-muted); }
+.assistant-card.open .assistant-chevron{ transform:rotate(180deg); }
+.assistant-body{ max-height:0; overflow:hidden; transition:max-height .25s ease; }
+.assistant-card.open .assistant-body{ max-height:900px; }
+
+/* ── AI Activity panel: floating, right-docked, ChatGPT-agent-style live trace ── */
+.ai-activity-panel{
+  position:fixed; right:20px; bottom:90px; width:340px; max-width:calc(100vw - 40px);
+  background:var(--bg-panel); border:1px solid var(--border-panel); box-shadow:var(--shadow-panel);
+  backdrop-filter:blur(16px); -webkit-backdrop-filter:blur(16px);
+  border-radius:12px; overflow:hidden; z-index:2000;
+  transform:translateY(24px) scale(0.98); opacity:0; pointer-events:none;
+  transition:transform .28s cubic-bezier(.16,1,.3,1), opacity .22s ease;
+}
+.ai-activity-panel.visible{ transform:translateY(0) scale(1); opacity:1; pointer-events:auto; }
+.ai-activity-panel.collapsed .aap-body{ max-height:0; padding-top:0; padding-bottom:0; opacity:0; }
+.aap-header{ display:flex; align-items:center; gap:8px; padding:12px 14px; cursor:pointer; user-select:none; }
+.aap-dot{ width:7px; height:7px; border-radius:50%; background:var(--blue); flex-shrink:0; animation:aap-pulse 1.6s ease-in-out infinite; }
+.ai-activity-panel[data-status="complete"] .aap-dot{ background:var(--teal); animation:none; }
+.ai-activity-panel[data-status="failed"] .aap-dot{ background:var(--rose); animation:none; }
+@keyframes aap-pulse{ 0%{ box-shadow:0 0 0 0 rgba(56,189,248,.45); } 70%{ box-shadow:0 0 0 8px rgba(56,189,248,0); } 100%{ box-shadow:0 0 0 0 rgba(56,189,248,0); } }
+.aap-title{ font-family:var(--font-display); font-size:12.5px; font-weight:700; color:var(--text-primary); }
+.aap-company{ font-size:11px; color:var(--text-muted); overflow:hidden; text-overflow:ellipsis; white-space:nowrap; flex:1; min-width:0; }
+.aap-status{ font-size:10px; font-weight:700; letter-spacing:.04em; text-transform:uppercase; color:var(--text-muted); flex-shrink:0; }
+.aap-collapse, .aap-close{ background:none; border:none; color:var(--text-muted); cursor:pointer; font-size:14px; line-height:1; padding:2px 4px; flex-shrink:0; }
+.aap-collapse:hover, .aap-close:hover{ color:var(--text-primary); }
+.aap-body{ max-height:400px; padding:0 14px 14px; overflow:hidden; transition:max-height .25s ease, opacity .2s ease, padding .25s ease; opacity:1; }
+.aap-trace{ list-style:none; margin:0; padding:0; position:relative; }
+.aap-trace li{ position:relative; padding:6px 0 6px 22px; font-size:12px; color:var(--text-secondary); opacity:0; transform:translateX(-4px); animation:aap-step-in .3s ease forwards; }
+.aap-trace li:nth-child(1){ animation-delay:0s; } .aap-trace li:nth-child(2){ animation-delay:.03s; } .aap-trace li:nth-child(3){ animation-delay:.06s; } .aap-trace li:nth-child(4){ animation-delay:.09s; } .aap-trace li:nth-child(5){ animation-delay:.12s; }
+@keyframes aap-step-in{ to{ opacity:1; transform:translateX(0); } }
+.aap-trace li::before{ content:''; position:absolute; left:5px; top:0; bottom:0; width:1px; background:var(--border-panel-light); }
+.aap-trace li:first-child::before{ top:50%; }
+.aap-trace li:last-child::before{ bottom:50%; }
+.aap-glyph{ position:absolute; left:0; top:9px; width:11px; height:11px; border-radius:50%; display:flex; align-items:center; justify-content:center; font-size:8px; background:var(--bg-panel); }
+.aap-glyph.complete{ color:var(--teal); }
+.aap-glyph.running{ color:var(--blue); }
+.aap-glyph.running::after{ content:''; position:absolute; inset:0; border-radius:50%; border:1.5px solid var(--blue); border-top-color:transparent; animation:aap-spin .7s linear infinite; }
+.aap-glyph.pending{ color:var(--text-muted); }
+.aap-glyph.failed{ color:var(--rose); }
+@keyframes aap-spin{ to{ transform:rotate(360deg); } }
+.aap-trace li.clickable{ cursor:pointer; }
+.aap-trace li.clickable:hover{ color:var(--text-primary); }
+.aap-summary{ font-size:11.5px; color:var(--text-secondary); padding-top:8px; margin-top:4px; border-top:1px solid var(--border-panel-light); }
+.aap-detail{ font-size:11px; color:var(--text-secondary); margin-top:8px; padding:8px 10px; background:var(--bg-panel-light); border:1px solid var(--border-panel-light); border-radius:var(--radius-md); }
+.aap-detail div{ margin-bottom:3px; }
+.aap-detail strong{ color:var(--text-primary); }
+@media (max-width:640px){ .ai-activity-panel{ left:16px; right:16px; width:auto; bottom:82px; } }
+.assistant-inner{ padding:0 22px 22px; }
+.assistant-tabs{ display:flex; gap:6px; margin-bottom:14px; }
+.tab-btn{ font-size:11.5px; padding:6px 12px; border-radius:999px; background:rgba(255,255,255,0.04); border:1px solid var(--border-soft); color:var(--text-muted); cursor:pointer; font-family:var(--font-mono); font-weight: 700; text-transform: uppercase; letter-spacing: 0.03em; }
+.tab-btn:hover{ color:var(--text-primary); border-color:var(--border); }
+.tab-btn.active{ background:rgba(220,38,38,0.1); color:var(--paybrix-red); border-color:rgba(220,38,38,0.2); }
+.email-card{ background:var(--bg-panel-light); border-radius:0; border:1px solid var(--border-panel); overflow:hidden; }
+.email-header{ padding:14px 16px; border-bottom:1px solid var(--border-panel); display:flex; justify-content:space-between; gap:10px; flex-wrap:wrap; }
+.email-meta{ font-size:12px; }
+.email-label{ color:var(--text-muted); margin-right:6px; }
+.email-actions{ display:flex; gap:8px; }
+.btn-ghost{
+  font-size:11px; font-weight:700; padding:7px 14px; border-radius:8px;
+  background:rgba(220,38,38,0.08); color:var(--paybrix-red); border:1px solid rgba(220,38,38,0.20);
+  cursor:pointer; font-family:var(--font-mono); text-transform:uppercase; letter-spacing:0.06em;
+  transition: background 0.15s, color 0.15s;
+}
+.btn-ghost:hover{ background:var(--paybrix-red); color:#fff; border-color:transparent; }
+.btn-solid{
+  font-size:11px; font-weight:700; padding:8px 18px; border-radius:8px;
+  background:var(--paybrix-red); color:#fff; border:none;
+  cursor:pointer; font-family:var(--font-mono); text-transform:uppercase; letter-spacing:0.06em;
+  box-shadow: 0 4px 16px -4px rgba(220,38,38,0.45);
+  transition: filter 0.15s, transform 0.1s;
+}
+.btn-solid:hover{ filter:brightness(1.08); }
+.btn-solid:active{ transform:translateY(1px); }
+.email-body{ padding:16px; font-size:13px; color:var(--text-secondary); line-height:1.7; white-space:pre-wrap; margin:0; font-family:'Inter',sans-serif; }
+.compliance-note{ font-size:11px; color:var(--text-muted); margin-top:12px; padding:0 22px 20px; }
+.generate-email-state{ padding:16px 0; text-align:center; }
+.generate-email-state p{ margin:0 0 12px; color:var(--text-muted); font-size:13px; }
+
+details.raw{ background:var(--bg-panel-light); border:1px solid var(--border-panel); border-radius:0; overflow-x:auto; transition:background 0.3s ease, border-color 0.3s ease; }
+details.raw summary{ padding:14px 20px; font-size:12px; color:var(--text-muted); cursor:pointer; }
+details.raw pre{ margin:0 20px 18px; font-size:11px; color:var(--text-muted); background:var(--bg); border-radius:8px; padding:12px; white-space:pre-wrap; word-break:break-word; }
+
+.hidden{ display:none !important; }
+.inline-spinner{ display:inline-block; width:14px; height:14px; margin-right:7px; border:2px solid rgba(255,255,255,0.35); border-top-color:#fff; border-radius:50%; vertical-align:-2px; }
+@media (prefers-reduced-motion:no-preference){ .inline-spinner{ animation:spin .7s linear infinite; } }
+@keyframes spin{ to{ transform:rotate(360deg); } }
+.toast{ position:fixed; bottom:24px; right:24px; z-index:70; display:flex; align-items:center; gap:10px; background:var(--bg-elevated); border:1px solid var(--border); border-radius:var(--radius-md); padding:12px 16px; font-size:12.5px; box-shadow:0 12px 32px -8px rgba(0,0,0,0.5); max-width:340px; }
+.toast.success{ border-color:rgba(47,209,184,0.35); }
+.toast.error{ border-color:rgba(251,113,133,0.35); }
+
+/* Pay Brix scrollbar */
+::-webkit-scrollbar             { width:6px; height:6px; }
+::-webkit-scrollbar-track       { background:rgba(255,255,255,0.02); }
+::-webkit-scrollbar-thumb       { background:rgba(220,38,38,0.20); border-radius:3px; }
+::-webkit-scrollbar-thumb:hover { background:rgba(220,38,38,0.40); }
+
+/* Pay Brix theme toggle (floating) */
+#pb-theme-toggle {
+  position:fixed; bottom:24px; right:24px; z-index:70;
+  width:44px; height:44px; border-radius:50%;
+  background:var(--bg-panel); border:1px solid var(--border-panel);
+  box-shadow:var(--shadow-panel); backdrop-filter:blur(16px);
+  display:flex; align-items:center; justify-content:center;
+  cursor:pointer; color:var(--text-primary);
+  transition:border-color 0.25s ease, color 0.25s ease, box-shadow 0.25s ease;
+}
+#pb-theme-toggle:hover {
+  border-color:var(--paybrix-red); color:var(--paybrix-red);
+  box-shadow:0 0 0 3px rgba(220,38,38,0.18),var(--shadow-panel);
+}
+
+</style>
+</head>
+<body>
+
+<!-- Ambient Glow Spheres (Pay Brix brand atmosphere) -->
+<div class="glow-sphere" style="width:480px;height:480px;top:-120px;left:-120px;background:var(--paybrix-red);" aria-hidden="true"></div>
+<div class="glow-sphere" style="width:300px;height:300px;top:50%;right:-80px;background:var(--vanguard);" aria-hidden="true"></div>
+
+<div class="topbar">
+  <div class="topbar-inner">
+    <a href="/" class="back-link">&larr; All Leads</a>
+    <span class="topbar-sep">/</span>
+
+    <!-- Brand mark + text: hex seal + Pay Brix overline -->
+    <div style="display:flex;align-items:center;gap:10px;">
+      <div class="brand-mark">
+        <!-- PayBrix Hexagonal Seal — verbatim from paybrix-style-demo spec -->
+        <svg viewBox="0 0 3262 3429" fill="none" xmlns="http://www.w3.org/2000/svg" style="width:36px;height:36px;">
+          <g clip-path="url(#pb_lead_clip)">
+            <defs>
+              <clipPath id="pb_lead_hex_clip">
+                <path d="M2663.97 1407.47C2733.67 1528.18 2733.67 1648.89 2663.97 1769.6L2304.31 2392.68C2234.61 2513.39 2130.06 2573.74 1990.66 2573.74H1271.35C1131.94 2573.74 1027.39 2513.39 957.692 2392.68L598.035 1769.6C528.335 1648.89 528.335 1528.18 598.035 1407.47L957.692 784.391C1027.39 663.679 1131.94 603.323 1271.35 603.323H1990.66C2130.06 603.323 2234.61 663.679 2304.31 784.391L2663.97 1407.47Z"/>
+              </clipPath>
+            </defs>
+            <mask id="pb_lead_mask" style="mask-type:luminance" maskUnits="userSpaceOnUse" x="-753" y="-796" width="5019" height="5020">
+              <path d="M4265.69 -795.037H-752.769V4223.01H4265.69V-795.037Z" fill="white"/>
+              <g clip-path="url(#pb_lead_hex_clip)">
+                <path d="M4265.69 -795.037H-752.77V4223.01H4265.69V-795.037Z" fill="black"/>
+                <path d="M1537.34 2580.78H649.474V2283.64H1537.34V2580.78ZM2961.89 1296.81H2277.54V1439.07H2783.61V1736.21H1821.9V1878.46H1992.99V2105.37V2283.64H2589.11V2580.78H1710.24V2283.64H1881.33V2141.37H1196.97V1878.46H1710.24V1439.07H2165.88V1033.9H2961.89V1296.81ZM1537.34 817.799H1539.15V1033.9H1992.99V1296.81H1308.63V1439.07H1537.35V1736.21H1025.88V2009.91H1024.08V2141.37H228.062V1878.46H914.217V1736.21H463.98V1439.07H1196.97V1033.9H1427.49V891.625H649.474V594.492H1537.34V817.799ZM2961.89 2141.37H2165.88V1878.46H2961.89V2141.37ZM1024.08 1296.81H228.062V1033.9H1024.08V1296.81ZM2589.11 891.625H1710.24V594.492H2589.11V891.625Z" fill="white"/>
+              </g>
+            </mask>
+            <g mask="url(#pb_lead_mask)">
+              <path d="M2663.97 1407.47C2733.67 1528.18 2733.67 1648.89 2663.97 1769.6L2304.31 2392.68C2234.61 2513.39 2130.06 2573.74 1990.66 2573.74H1271.35C1131.94 2573.74 1027.39 2513.39 957.692 2392.68L598.035 1769.6C528.335 1648.89 528.335 1528.18 598.035 1407.47L957.692 784.391C1027.39 663.679 1131.94 603.323 1271.35 603.323H1990.66C2130.06 603.323 2234.61 663.679 2304.31 784.391L2663.97 1407.47Z" fill="url(#pb_lead_grad)"/>
+            </g>
+            <path d="M2663.97 1407.47C2733.67 1528.18 2733.67 1648.89 2663.97 1769.6L2304.31 2392.68C2234.61 2513.39 2130.06 2573.74 1990.66 2573.74H1271.35C1131.94 2573.74 1027.39 2513.39 957.692 2392.68L598.035 1769.6C528.335 1648.89 528.335 1528.18 598.035 1407.47L957.692 784.391C1027.39 663.679 1131.94 603.323 1271.35 603.323H1990.66C2130.06 603.323 2234.61 663.679 2304.31 784.391L2663.97 1407.47Z" stroke="white" stroke-opacity="0.18" stroke-width="33.5"/>
+            <path d="M2663.97 1407.47C2733.67 1528.18 2733.67 1648.89 2663.97 1769.6L2304.31 2392.68C2234.61 2513.39 2130.06 2573.74 1990.66 2573.74H1271.35C1131.94 2573.74 1027.39 2513.39 957.692 2392.68L598.035 1769.6C528.335 1648.89 528.335 1528.18 598.035 1407.47L957.692 784.391C1027.39 663.679 1131.94 603.323 1271.35 603.323H1990.66C2130.06 603.323 2234.61 663.679 2304.31 784.391L2663.97 1407.47Z" stroke="url(#pb_lead_border)" stroke-width="62.8"/>
+          </g>
+          <defs>
+            <linearGradient id="pb_lead_grad" x1="806" y1="603" x2="2301" y2="2714" gradientUnits="userSpaceOnUse">
+              <stop stop-color="#E87070"/>
+              <stop offset="0.5" stop-color="#DC2626"/>
+              <stop offset="1" stop-color="#801616"/>
+            </linearGradient>
+            <linearGradient id="pb_lead_border" x1="546" y1="603" x2="2507" y2="2764" gradientUnits="userSpaceOnUse">
+              <stop stop-color="#EE9393" stop-opacity="0.95"/>
+              <stop offset="0.5" stop-color="#DC2626" stop-opacity="0.6"/>
+              <stop offset="1" stop-color="#E35151" stop-opacity="0.9"/>
+            </linearGradient>
+            <clipPath id="pb_lead_clip">
+              <rect width="3262" height="3429" fill="white"/>
+            </clipPath>
+          </defs>
+        </svg>
+      </div>
+      <div class="brand-text">
+        <div class="brand-overline">Pay Brix</div>
+        <div class="brand-name-lead">Insurance Lead Engine</div>
+        <div class="brand-sub-lead">Pay Brix Division &middot; Sremium Group</div>
+      </div>
+    </div>
+    <button id="btn-reassess" class="btn-ghost" style="margin-left:auto;font-size:11px;color:var(--text-muted);padding:6px 12px;border:1px solid var(--border-panel);">Reassess</button>
+  </div>
+</div>
+
+<div id="detail-loading" style="max-width:1280px;margin:0 auto;padding:60px 24px;text-align:center;color:var(--text-muted);font-size:13px;">
+  <div style="width:20px;height:20px;border:2px solid var(--border);border-top-color:var(--coral);border-radius:50%;margin:0 auto 12px;animation:spin .7s linear infinite;"></div>
+  <p>Loading lead...</p>
+</div>
+
+<div id="detail-error" class="hidden" style="max-width:1280px;margin:0 auto;padding:60px 24px;text-align:center;color:var(--text-muted);font-size:13px;">
+  <p>Lead not found.</p>
+  <a href="/" style="font-size:13px;color:var(--text-muted);">&larr; Back to leads</a>
+</div>
+
+<div id="detail-content" class="hidden layout" style="padding-top:28px;">
+
+  <div id="d-not-assessed" class="hidden" style="grid-column:1/-1;text-align:center;padding:80px 24px;">
+    <p style="font-size:15px;color:var(--text-secondary);margin-bottom:16px;">This lead has not been assessed yet.</p>
+    <button id="btn-enrich-single" class="btn-solid" style="font-size:13px;padding:10px 24px;">Assess</button>
+    <div id="d-enrich-error" class="hidden" style="margin-top:16px;padding:12px 16px;background:var(--rose-dim);border:1px solid rgba(251,113,133,0.3);border-radius:var(--radius-md);color:var(--rose);font-size:12px;text-align:left;"></div>
+  </div>
+
+  <div id="d-assessed-content" style="display:contents;">
+
+  <!-- SIDEBAR -->
+  <aside class="sidebar">
+    <div class="card id-card">
+      <span class="badge badge-verified" id="d-badge">Verified · Active</span>
+      <div class="id-name" style="margin-top:12px;" id="d-legal-name"></div>
+      <div class="id-trading" id="d-trading-name"></div>
+      <!-- Overall Fit Score badge (qualification_score) — renamed from "Business Fit
+           Score" to avoid colliding with the separate opportunity_signal.business_fit
+           dimension shown below; this one previously existed twice in the markup
+           (literal duplicate id) and neither copy was ever populated by app.js. -->
+      <div id="d-fit-score-wrap" style="display:none; margin-top:10px; padding:8px 12px; border-radius:0px; background:var(--bg-panel-light); border:1px solid var(--border-panel-light);">
+        <div style="font-size:10px; text-transform:uppercase; letter-spacing:0.08em; color:var(--text-muted); font-weight:700; margin-bottom:3px;">Overall Fit Score</div>
+        <div style="display:flex; align-items:baseline; gap:4px;">
+          <span id="d-fit-score-num" style="font-size:22px; font-weight:800; font-family:'Sora',sans-serif;"></span>
+          <span style="font-size:12px; color:var(--text-muted);">/100</span>
+          <span id="d-fit-score-label" style="margin-left:6px; font-size:10px; font-weight:700; text-transform:uppercase; letter-spacing:0.06em; padding:2px 6px; border-radius:4px;"></span>
+        </div>
+        <div style="font-size:11px; color:var(--text-muted); margin-top:4px;">Combines the 6 signals below — see each for why</div>
+      </div>
+      <div class="confidence-ring-wrap" id="d-confidence-wrap" style="display:none; margin-top:16px;">
+        <svg class="confidence-ring" width="52" height="52" viewBox="0 0 52 52">
+          <circle cx="26" cy="26" r="22" fill="none" stroke="var(--border-panel-light)" stroke-width="5"/>
+          <circle cx="26" cy="26" r="22" fill="none" stroke="var(--teal)" stroke-width="5" stroke-linecap="round"
+            stroke-dasharray="138.2" stroke-dashoffset="0" transform="rotate(-90 26 26)" id="d-ring-fill"/>
+        </svg>
+        <div>
+          <div class="confidence-num" id="d-confidence-num"></div>
+          <div class="confidence-label">Research confidence</div>
+        </div>
+      </div>
+      <div class="id-facts" id="d-facts">
+        <div class="id-fact"><span class="id-fact-label">County</span><span class="id-fact-value" id="d-county">--</span></div>
+        <div class="id-fact"><span class="id-fact-label">CRO Status</span><span class="id-fact-value mono" id="d-cro-status">--</span></div>
+        <div class="id-fact"><span class="id-fact-label">Incorporated</span><span class="id-fact-value mono" id="d-incorp">--</span></div>
+        <div class="id-fact"><span class="id-fact-label">Years operating</span><span class="id-fact-value mono" id="d-years-op">--</span></div>
+        <div class="id-fact"><span class="id-fact-label">CRO Number</span><span class="id-fact-value mono" id="d-cro-number">--</span></div>
+        <div class="id-fact" id="d-fact-cbi" style="display:none;"><span class="id-fact-label">CBI Reference</span><span class="id-fact-value mono" id="d-cbi-ref">--</span></div>
+        <div class="id-fact" id="d-fact-employees" style="display:none;"><span class="id-fact-label">Est. employees</span><span class="id-fact-value" id="d-employees">--</span></div>
+      </div>
+      <div id="d-website-block"></div>
+    </div>
+
+    <div class="card" id="d-scorecard">
+      <div class="scorecard-title">Opportunity Signal</div>
+      <div id="d-scorecard-bars"></div>
+    </div>
+  </aside>
+
+  <!-- MAIN CONTENT -->
+  <main class="content" id="d-content-main">
+
+    <!-- Executive Assessment -->
+    <div class="card">
+      <div class="section-title">
+        <h2>Executive Assessment</h2>
+      </div>
+      <p class="exec-text" id="d-exec-summary"></p>
+    </div>
+
+    <!-- Personalisation Guide — moved up: this is the genuinely
+         company-specific content a salesperson needs first, not the
+         registry facts every company has. -->
+    <div class="card card-highlight">
+      <div class="section-title">
+        <div class="section-icon" style="background:var(--blue-dim);">
+          <svg width="14" height="14" fill="none" stroke="var(--blue)" stroke-width="2" viewBox="0 0 24 24"><path d="M12 2l3 7h7l-5.5 4.5L18 21l-6-4-6 4 1.5-7.5L2 9h7z"/></svg>
+        </div>
+        <h2>Personalisation Guide</h2>
+      </div>
+      <div class="two-col" id="d-personalisation"></div>
+    </div>
+
+    <!-- Recommended Opening Angle -->
+    <div class="card card-highlight">
+      <div class="section-title">
+        <div class="section-icon" style="background:var(--blue-dim);">
+          <svg width="14" height="14" fill="none" stroke="var(--blue)" stroke-width="2" viewBox="0 0 24 24"><path d="M13 2L3 14h7l-1 8 10-12h-7l1-8z"/></svg>
+        </div>
+        <h2>Recommended Opening Angle</h2>
+      </div>
+      <div class="angle-box">
+        <p id="d-opening-angle"></p>
+      </div>
+    </div>
+
+    <!-- Contact Intelligence -->
+    <div class="card">
+      <div class="section-title">
+        <div class="section-icon" style="background:var(--amber-dim);">
+          <svg width="14" height="14" fill="none" stroke="var(--amber)" stroke-width="2" viewBox="0 0 24 24"><path d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z"/></svg>
+        </div>
+        <h2>Contact Intelligence</h2>
+        <button class="btn-ghost" id="btn-refresh-contacts" onclick="refreshContacts()" title="Re-check email, LinkedIn, and phone only" style="margin-left:auto;font-size:11px;color:var(--text-muted);padding:6px 12px;border:1px solid var(--border-panel);display:flex;align-items:center;gap:6px;">
+          <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M23 4v6h-6M1 20v-6h6"/><path d="M3.51 9a9 9 0 0114.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0020.49 15"/></svg>
+          Refresh
+        </button>
+      </div>
+      <div id="d-contact-content"></div>
+    </div>
+
+    <!-- Discovery Priorities -->
+    <div class="card">
+      <div class="section-title">
+        <div class="section-icon" style="background:var(--bg-panel-light); border:1px solid var(--border-panel-light);">
+          <svg width="14" height="14" fill="none" stroke="var(--text-secondary)" stroke-width="2" viewBox="0 0 24 24"><path d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z"/></svg>
+        </div>
+        <h2>Discovery Priorities</h2>
+      </div>
+      <ul class="discovery-list" id="d-discovery-list"></ul>
+    </div>
+
+    <!-- Research Coverage — supporting/compliance evidence: still full
+         detail, deliberately quieter so it reads as backup material to
+         verify against, not the headline. -->
+    <div class="card card-secondary">
+      <div class="section-title">
+        <div class="section-icon" id="d-research-icon" style="background:var(--teal-dim);">
+          <svg width="14" height="14" fill="none" stroke="var(--teal)" stroke-width="2" viewBox="0 0 24 24"><path d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
+        </div>
+        <h2>Research Coverage</h2>
+        <span class="section-role" id="d-sources-reviewed"></span>
+      </div>
+      <div class="two-col" id="d-research-coverage"></div>
+    </div>
+
+    <!-- Digital Presence -->
+    <div class="card card-secondary">
+      <div class="section-title">
+        <div class="section-icon" style="background:var(--bg-panel-light); border:1px solid var(--border-panel-light);">
+          <svg width="14" height="14" fill="none" stroke="var(--text-secondary)" stroke-width="2" viewBox="0 0 24 24"><path d="M10 13a5 5 0 007.07 0l1.41-1.41a5 5 0 00-7.07-7.07L10 6"/><path d="M14 11a5 5 0 00-7.07 0L5.5 12.4a5 5 0 007.07 7.07L14 18"/></svg>
+        </div>
+        <h2>Digital Presence</h2>
+      </div>
+      <div id="d-digital-content"></div>
+    </div>
+
+    <!-- AI Sales Assistant -->
+    <div class="card assistant-card" id="d-assistant-card">
+      <button class="assistant-toggle" id="d-assistant-toggle">
+        <div class="section-icon">
+          <svg width="14" height="14" fill="none" stroke="var(--coral)" stroke-width="2" viewBox="0 0 24 24"><path d="M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z"/></svg>
+        </div>
+        <h2>AI Sales Assistant</h2>
+        <span class="hint" id="d-assistant-hint"></span>
+        <svg class="assistant-chevron" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M6 9l6 6 6-6"/></svg>
+      </button>
+      <div class="assistant-body">
+        <div class="assistant-inner">
+          <div class="assistant-tabs">
+            <button class="tab-btn active" onclick="switchAssistantTab('email')">Email</button>
+            <button class="tab-btn" onclick="switchAssistantTab('linkedin')">LinkedIn</button>
+            <button class="tab-btn" onclick="switchAssistantTab('call')">Call script</button>
+          </div>
+          <div id="d-tab-content"></div>
+          <div id="d-email-content" class="hidden">
+            <div class="generate-email-state">
+              <p>Generate a personalised outreach email for this lead.</p>
+              <button id="btn-gen-email" class="btn-solid" onclick="generateEmail()">Generate Email</button>
+            </div>
+          </div>
+          <div class="compliance-note" style="display:none;" id="d-compliance-note">* Compliance footer (sender identity, registered address, opt-out per S.I. 336/2011) appended automatically before send — not shown in this preview.</div>
+        </div>
+      </div>
+    </div>
+
+    <details class="raw">
+      <summary>Raw company record</summary>
+      <pre id="d-raw-json"></pre>
+    </details>
+
+  </main>
+  </div>
+</div>
+
+<div id="toast" class="toast hidden">
+  <span id="toast-icon"></span>
+  <span id="toast-msg"></span>
+</div>
+
+<div id="ai-activity-panel" class="ai-activity-panel">
+  <div class="aap-header" id="aap-header">
+    <span class="aap-dot"></span>
+    <span class="aap-title">AI Activity</span>
+    <span class="aap-company" id="aap-company"></span>
+    <span class="aap-status" id="aap-status">Running</span>
+    <button class="aap-collapse" id="aap-collapse" title="Collapse">&#8722;</button>
+    <button class="aap-close" id="aap-close" title="Dismiss">&times;</button>
+  </div>
+  <div class="aap-body" id="aap-body">
+    <ul class="aap-trace" id="aap-trace"></ul>
+    <div class="aap-detail hidden" id="aap-detail"></div>
+  </div>
+</div>
+
+<script>
+var companyId = window.location.pathname.replace(/\/+$/, '').split('/').pop();
+var _enrichment = null;
+var _company = null;
+var _na = null;
+
+// ── AI Activity panel: floating, right-docked live run trace ──
+var STEP_LABELS = {
+  company_research: 'Collecting company evidence',
+  company_identity: 'Validating company identity',
+  contact_discovery: 'Finding contact candidates',
+  contact_validation: 'Checking contact evidence',
+  sales_context: 'Building commercial assessment',
+  outreach_prep: 'Preparing outreach context',
+};
+var ASSESS_STEPS = ['company_research', 'company_identity', 'contact_discovery', 'contact_validation', 'sales_context'];
+var OUTREACH_STEPS = ['outreach_prep'];
+var CONTACTS_REFRESH_STEPS = ['contact_discovery', 'contact_validation'];
+var _activityEvents = {};
+var _activitySteps = ASSESS_STEPS;
+var _activityStartTime = null;
+var _activityEventSource = null;
+var _activityTickInterval = null;
+
+function glyphFor(status) {
+  if (status === 'complete') return '<span class="aap-glyph complete">✓</span>';
+  if (status === 'running') return '<span class="aap-glyph running"></span>';
+  if (status === 'failed') return '<span class="aap-glyph failed">✕</span>';
+  return '<span class="aap-glyph pending">○</span>';
+}
+
+// Split from the trace list on purpose: the elapsed-time ticker calls only
+// this, every second, while running. Earlier this was one function that
+// also rebuilt <ul id="aap-trace"> — recreating those <li> nodes every
+// second retriggered their CSS entrance animation every second, which is
+// what read as the panel "appearing and disappearing."
+function renderStatusText(status) {
+  var panel = document.getElementById('ai-activity-panel');
+  var statusEl = document.getElementById('aap-status');
+  if (panel) panel.setAttribute('data-status', status);
+  if (statusEl) {
+    if (status === 'running') {
+      var elapsed = _activityStartTime ? ((Date.now() - _activityStartTime) / 1000).toFixed(0) : '0';
+      statusEl.textContent = 'Running · ' + elapsed + 's';
+    } else {
+      var secs = _activityStartTime ? ((Date.now() - _activityStartTime) / 1000).toFixed(1) : '?';
+      statusEl.textContent = status === 'complete' ? (secs + 's') : 'Failed';
+    }
+  }
+}
+
+function renderActivityPanel(status) {
+  var ul = document.getElementById('aap-trace');
+  if (ul) {
+    ul.innerHTML = _activitySteps.map(function(step) {
+      var ev = _activityEvents[step];
+      var label = (ev && ev.label) || STEP_LABELS[step];
+      var st = ev ? ev.status : 'pending';
+      var clickable = st === 'complete';
+      return '<li class="' + (clickable ? 'clickable' : '') + '"' + (clickable ? ' onclick="showActivityDetail(\'' + step + '\')"' : '') + '>'
+        + glyphFor(st) + '<span>' + escHtml(label) + '</span></li>';
+    }).join('');
+  }
+  renderStatusText(status);
+}
+
+function connectRunEvents(runId, opts) {
+  opts = opts || {};
+  _activitySteps = opts.steps || ASSESS_STEPS;
+  if (_activityEventSource) { _activityEventSource.close(); }
+  if (_activityTickInterval) { clearInterval(_activityTickInterval); _activityTickInterval = null; }
+  _activityEvents = {};
+  _activityStartTime = Date.now();
+  var panel = document.getElementById('ai-activity-panel');
+  var companyEl = document.getElementById('aap-company');
+  var detailEl = document.getElementById('aap-detail');
+  if (detailEl) detailEl.classList.add('hidden');
+  if (companyEl) companyEl.textContent = opts.companyName || '';
+  if (panel) { panel.classList.remove('collapsed'); panel.classList.add('visible'); }
+  renderActivityPanel('running');
+  // Live-ticking elapsed time while running — this is the "still thinking"
+  // signal a live SSE event can't provide by itself for slow steps.
+  _activityTickInterval = setInterval(function() { renderStatusText('running'); }, 1000);
+
+  function handleTerminal(status) {
+    if (_activityTickInterval) { clearInterval(_activityTickInterval); _activityTickInterval = null; }
+    renderActivityPanel(status);
+    if (opts.onDone) opts.onDone(status);
+  }
+
+  var es = new EventSource('/api/runs/' + runId + '/events');
+  _activityEventSource = es;
+  es.onmessage = function(ev) {
+    var data = JSON.parse(ev.data);
+    if (data.step === '_run') {
+      es.close();
+      if (_activityEventSource === es) _activityEventSource = null;
+      handleTerminal(data.status);
+      return;
+    }
+    _activityEvents[data.step] = data;
+    renderActivityPanel('running');
+  };
+  es.onerror = function() {
+    // SSE connection dropped — fall back to polling run status directly
+    // rather than leaving the UI stuck mid-run. Capped like every other
+    // poll loop in this app (3s x 40 = 2min) so a run_id that stops
+    // resolving (e.g. server restart wiping the in-memory registry) can't
+    // poll forever — give up and let the user retry instead.
+    es.close();
+    if (_activityEventSource === es) _activityEventSource = null;
+    var pollCount = 0;
+    var poll = setInterval(function() {
+      pollCount++;
+      fetch('/api/runs/' + runId).then(function(r) {
+        if (!r.ok) throw new Error('run not found');
+        return r.json();
+      }).then(function(run) {
+        if (run.status === 'complete' || run.status === 'failed') {
+          clearInterval(poll);
+          (run.events || []).forEach(function(e) { _activityEvents[e.step] = e; });
+          handleTerminal(run.status);
+        }
+      }).catch(function() {
+        if (pollCount >= 40) { clearInterval(poll); handleTerminal('failed'); }
+      });
+      if (pollCount >= 40) { clearInterval(poll); handleTerminal('failed'); }
+    }, 3000);
+  };
+}
+
+(function initActivityPanelChrome() {
+  var header = document.getElementById('aap-header');
+  var collapseBtn = document.getElementById('aap-collapse');
+  var closeBtn = document.getElementById('aap-close');
+  var panel = document.getElementById('ai-activity-panel');
+  if (header) header.addEventListener('click', function(e) {
+    if (e.target === closeBtn) return;
+    panel.classList.toggle('collapsed');
+  });
+  if (closeBtn) closeBtn.addEventListener('click', function(e) {
+    e.stopPropagation();
+    panel.classList.remove('visible');
+  });
+})();
+
+// Turns each step's real, already-computed metadata into a short narrative
+// — grounded entirely in what the backend actually measured, never
+// invented text, so "what the AI is thinking" reads as plain sentences
+// instead of a raw key:value dump.
+function describeStepMetadata(step, ev) {
+  var m = ev.metadata || {};
+  var lines = [];
+  if (step === 'company_research') {
+    var n = m.evidence_sources;
+    lines.push(n ? ('Reviewed ' + n + ' evidence source' + (n === 1 ? '' : 's') + ' — company website, search results, and public registries.') : 'No usable evidence sources were found.');
+  } else if (step === 'company_identity') {
+    lines.push(m.has_website ? 'A verified official website was identified for this company.' : 'No official website could be confidently attributed to this company.');
+    if (m.research_confidence != null) lines.push('Overall research confidence: ' + m.research_confidence + '%.');
+  } else if (step === 'contact_discovery') {
+    var c = m.contacts_checked;
+    lines.push(c ? ('Found ' + c + ' contact candidate' + (c === 1 ? '' : 's') + ' worth evaluating.') : 'No named contact candidates were found in the available sources.');
+  } else if (step === 'contact_validation') {
+    var h = m.high_confidence_contacts;
+    lines.push(h ? (h + ' contact' + (h === 1 ? ' meets' : 's meet') + ' the high-confidence bar.') : 'None of the candidates met the high-confidence bar — treat contact details as tentative.');
+  } else if (step === 'sales_context') {
+    lines.push(m.guard_passed ? ('Guard checks passed with a score of ' + m.guard_score + '/100.') : ('Guard checks flagged issues — score ' + m.guard_score + '/100, review before relying on this assessment.'));
+  } else if (step === 'outreach_prep') {
+    var w = m.quality_warnings;
+    lines.push(w ? (w + ' quality concern' + (w === 1 ? '' : 's') + ' were flagged and addressed in a rewrite before this draft was kept.') : 'The draft passed quality checks on the first attempt — no generic filler or unsupported claims detected.');
+  }
+  if (ev.status === 'failed') lines.push('This step did not complete successfully.');
+  return lines;
+}
+
+function showActivityDetail(step) {
+  var ev = _activityEvents[step];
+  var el = document.getElementById('aap-detail');
+  if (!el || !ev) return;
+  var lines = describeStepMetadata(step, ev);
+  var html = lines.map(function(l) { return '<p style="margin:0 0 6px;">' + escHtml(l) + '</p>'; }).join('');
+  html += '<div style="opacity:.65;font-size:10px;margin-top:2px;">Checked at ' + escHtml(ev.completed_at || '') + '</div>';
+  el.innerHTML = html;
+  el.classList.remove('hidden');
+}
+
+function frontendLog(msg) {
+  try {
+    var blob = new Blob([JSON.stringify({msg:msg, ts:Date.now()})], {type:'application/json'});
+    navigator.sendBeacon('/api/log', blob);
+  } catch(e) {}
+  console.log('[EVENT]', msg);
+}
+
+function showToast(msg, type) {
+  var t = document.getElementById('toast');
+  var icon = document.getElementById('toast-icon');
+  var msgEl = document.getElementById('toast-msg');
+  if (!t) return;
+  t.className = 'toast ' + (type || 'success');
+  icon.textContent = type === 'error' ? '✕' : '✓';
+  msgEl.textContent = msg;
+  t.classList.remove('hidden');
+  setTimeout(function(){ t.classList.add('hidden'); }, 3500);
+}
+
+function escHtml(str) {
+  if (str == null) return '';
+  return String(str).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+}
+
+function formatDate(iso) {
+  if (!iso) return '--';
+  try { return new Date(iso).toLocaleDateString('en-IE', { day:'numeric', month:'short', year:'numeric' }); }
+  catch(e) { return iso; }
+}
+
+function formatDateTime(iso) {
+  // Date AND time — used for assessment freshness.
+  if (!iso) return '--';
+  try {
+    var d = new Date(iso);
+    return d.toLocaleDateString('en-IE', { day:'numeric', month:'short', year:'numeric' })
+      + ', ' + d.toLocaleTimeString('en-IE', { hour:'2-digit', minute:'2-digit' });
+  } catch(e) { return iso; }
+}
+
+function yearsFrom(iso) {
+  if (!iso) return null;
+  try { return new Date().getFullYear() - parseInt(iso.slice(0,4)); }
+  catch(e) { return null; }
+}
+
+function confidenceLevel(pct) {
+  if (pct >= 70) return 'high';
+  if (pct >= 40) return 'medium';
+  return 'low';
+}
+
+function levelClass(level) {
+  if (!level) return 'lvl-low';
+  var l = level.toLowerCase();
+  if (l === 'high') return 'lvl-high';
+  if (l === 'medium') return 'lvl-medium';
+  return 'lvl-low';
+}
+
+// ── Render confidence ring ──
+function renderRing(pct, level) {
+  var wrap = document.getElementById('d-confidence-wrap');
+  var fill = document.getElementById('d-ring-fill');
+  var num = document.getElementById('d-confidence-num');
+  if (!wrap || !fill || !num) return;
+  var circ = 138.2;
+  var off = circ * (1 - pct / 100);
+  fill.setAttribute('stroke-dashoffset', off.toFixed(1));
+  fill.setAttribute('stroke', level === 'high' ? 'var(--teal)' : level === 'medium' ? 'var(--amber)' : 'var(--rose)');
+  num.textContent = pct + '%';
+  num.style.color = level === 'high' ? 'var(--teal)' : level === 'medium' ? 'var(--amber)' : 'var(--rose)';
+  wrap.style.display = 'flex';
+}
+
+// ── Render scorecard bars ──
+function renderScorecard(signal) {
+  var bars = document.getElementById('d-scorecard-bars');
+  if (!bars) return;
+  var order = [
+    ['business_fit','Business Fit'],['regulatory_fit','Regulatory Fit'],['digital_maturity','Digital Maturity'],
+    ['evidence_coverage','Evidence Coverage'],['payment_visibility','Payment Visibility'],['decision_maker_access','Decision-Maker Access']
+  ];
+  var html = '';
+  for (var i = 0; i < order.length; i++) {
+    var key = order[i][0], label = order[i][1];
+    var dim = signal && signal[key];
+    if (!dim) { html += '<div class="score-row lvl-low"><div class="score-row-top"><span class="score-row-label">' + label + '</span><span class="score-row-level">--</span></div><div class="score-track"><div class="score-fill" style="width:0%"></div></div></div>'; continue; }
+    var cls = levelClass(dim.level);
+    // Real pct from the model, not a fixed per-level placeholder width —
+    // previously this was hardcoded to 90/58/18 regardless of the actual
+    // score, so two "Low" companies with very different evidence looked
+    // identical and the number itself was never shown.
+    var w = Math.max(2, Math.min(100, Math.round(dim.pct != null ? dim.pct : (dim.level === 'high' ? 90 : dim.level === 'medium' ? 58 : 18))));
+    var reason = dim.reason ? escHtml(dim.reason) : '';
+    html += '<div class="score-row ' + cls + '">'
+          +   '<div class="score-row-top"><span class="score-row-label">' + label + '</span>'
+          +     '<span class="score-row-level">' + dim.level.charAt(0).toUpperCase() + dim.level.slice(1) + ' \u00b7 ' + w + '%</span></div>'
+          +   '<div class="score-track"><div class="score-fill" style="width:' + w + '%"></div></div>'
+          +   (reason ? '<div class="score-row-reason">' + reason + '</div>' : '')
+          + '</div>';
+  }
+  bars.innerHTML = html;
+}
+
+// ── Render research coverage ──
+function renderCoverage(coverage, sources) {
+  var el = document.getElementById('d-research-coverage');
+  var sub = document.getElementById('d-sources-reviewed');
+  if (!el) return;
+  // `sources` is a list of source identifiers (e.g. "cro_register",
+  // "search:example.com"), not a count. Concatenating an array with a
+  // string in JS auto-joins it with commas and no spaces — for a long
+  // list of long identifiers that produced an unbroken string wide enough
+  // to overflow the layout and push the whole page right. Use the count.
+  var sourceCount = Array.isArray(sources) ? sources.length : (typeof sources === 'number' ? sources : 0);
+  if (sub) sub.textContent = sourceCount + ' source' + (sourceCount !== 1 ? 's' : '') + ' reviewed';
+  var verified = (coverage && coverage.verified) || [];
+  var missing = (coverage && coverage.missing) || [];
+  var html = '<div><div class="list-title pos">Verified</div><ul class="check-list">';
+  for (var i = 0; i < verified.length; i++) html += '<li><span class="check-yes">\u2713</span>' + escHtml(verified[i]) + '</li>';
+  if (!verified.length) html += '<li><span class="check-no">\u2013</span><span>No facts verified</span></li>';
+  html += '</ul></div><div><div class="list-title neg">Not found publicly</div><ul class="check-list">';
+  for (var i = 0; i < missing.length; i++) html += '<li><span class="check-no">\u2013</span><span>' + escHtml(missing[i]) + '</span></li>';
+  if (!missing.length) html += '<li><span class="check-yes">\u2713</span>Full coverage</li>';
+  html += '</ul></div>';
+  el.innerHTML = html;
+}
+
+// ── Render digital presence ──
+function renderDigital(digital) {
+  var el = document.getElementById('d-digital-content');
+  if (!el) return;
+  if (digital && digital.has_website && digital.domain) {
+    el.innerHTML = '<div style="display:flex;align-items:center;gap:8px;font-size:13px;color:var(--text-secondary);">'
+      + '<svg width="14" height="14" fill="none" stroke="var(--amber)" stroke-width="2" viewBox="0 0 24 24"><path d="M10 13a5 5 0 007.07 0l1.41-1.41a5 5 0 00-7.07-7.07L10 6"/><path d="M14 11a5 5 0 00-7.07 0L5.5 12.4a5 5 0 007.07 7.07L14 18"/></svg>'
+      + '<a href="https://' + escHtml(digital.domain) + '" target="_blank" rel="noopener" style="color:var(--amber);font-size:12px;">' + escHtml(digital.domain) + '</a></div>'
+      + (digital.quality_notes ? '<p style="margin:10px 0 0;font-size:12.5px;color:var(--text-muted);">' + escHtml(digital.quality_notes) + '</p>' : '');
+  } else {
+    var note = (digital && digital.quality_notes) || 'No verified official website identified.';
+    el.innerHTML = '<div class="gap-box">'
+      + '<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 9v2m0 4h.01M10.29 3.86L1.82 18a2 2 0 001.71 3h16.94a2 2 0 001.71-3L13.71 3.86a2 2 0 00-3.42 0z"/></svg>'
+      + '<p>' + escHtml(note) + '</p>'
+      + '<p class="small">The research process searched for an official domain but found none confidently attributable to this firm. Reported explicitly rather than guessed or linked to an unrelated business.</p>'
+      + '</div>';
+  }
+}
+
+// ── Render contacts ──
+var CHANNEL_ICONS = {
+  email: '<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 4h16v16H4z" opacity="0"/><path stroke-linecap="round" stroke-linejoin="round" d="M3 6l9 7 9-7M4 5h16v14H4z"/></svg>',
+  phone: '<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M22 16.92v3a2 2 0 01-2.18 2 19.79 19.79 0 01-8.63-3.07 19.5 19.5 0 01-6-6 19.79 19.79 0 01-3.07-8.67A2 2 0 014.11 2h3a2 2 0 012 1.72c.127.96.362 1.903.7 2.81a2 2 0 01-.45 2.11L8.09 9.91a16 16 0 006 6l1.27-1.27a2 2 0 012.11-.45c.907.338 1.85.573 2.81.7A2 2 0 0122 16.92z"/></svg>',
+  linkedin: '<svg width="12" height="12" viewBox="0 0 24 24" fill="currentColor"><path d="M20.5 2h-17A1.5 1.5 0 002 3.5v17A1.5 1.5 0 003.5 22h17a1.5 1.5 0 001.5-1.5v-17A1.5 1.5 0 0020.5 2zM8 19H5v-9h3zM6.5 8.25A1.75 1.75 0 118.3 6.5a1.78 1.78 0 01-1.8 1.75zM19 19h-3v-4.74c0-1.42-.6-1.93-1.38-1.93A1.74 1.74 0 0013 14.19a.66.66 0 000 .14V19h-3v-9h2.9v1.3a3.11 3.11 0 012.7-1.4c1.55 0 3.36.86 3.36 3.66z"/></svg>',
+};
+var _confRank = { high: 3, medium: 2, low: 1 };
+
+function tierColor(level) {
+  return level === 'high' ? 'var(--teal)' : level === 'medium' ? 'var(--blue)' : level === 'low' ? 'var(--rose)' : 'var(--text-muted)';
+}
+
+function initialsOf(name) {
+  var parts = (name || '').trim().split(/\s+/).filter(Boolean);
+  if (!parts.length) return '?';
+  if (parts.length === 1) return parts[0].slice(0, 2).toUpperCase();
+  return (parts[0][0] + parts[parts.length - 1][0]).toUpperCase();
+}
+
+var _ctReasonSeq = 0;
+function renderChannelChip(kind, label, value, conf, linkHref) {
+  var level = conf ? conf.level : null;
+  var color = tierColor(level);
+  var reasonId = 'ct-reason-' + (_ctReasonSeq++);
+  var displayValue = value
+    ? (linkHref ? '<a href="' + escHtml(linkHref) + '" target="_blank" rel="noopener">' + escHtml(value) + '</a>' : escHtml(value))
+    : 'Not available';
+  var reason = (conf && conf.reason) || 'No evidence available for this channel.';
+  return '<div class="ct-channel ' + (value ? 'has-value' : 'unavailable') + '">'
+    + '<span class="ct-channel-icon" style="--channel-color:' + color + ';">' + CHANNEL_ICONS[kind] + '</span>'
+    + '<span class="ct-channel-val">' + displayValue + '</span>'
+    + (conf ? '<button type="button" class="ct-why" aria-expanded="false" onclick="toggleCtReason(\'' + reasonId + '\', this)" title="Why this confidence level?">?</button>' : '')
+    + '</div>'
+    + (conf ? '<div class="ct-reason" id="' + reasonId + '">' + escHtml(reason) + '</div>' : '');
+}
+
+function toggleCtReason(id, btn) {
+  var el = document.getElementById(id);
+  if (!el) return;
+  var open = el.classList.toggle('open');
+  btn.setAttribute('aria-expanded', open ? 'true' : 'false');
+}
+
+function renderContacts(contacts, company) {
+  var el = document.getElementById('d-contact-content');
+  if (!el) return;
+  if (contacts && contacts.length > 0) {
+    // Best-evidenced contact first — the actual decision this card serves
+    // is "who do I reach out to", so surface it rather than leaving that
+    // read to whatever order the backend happened to return.
+    var sorted = contacts.slice().sort(function(a, b) {
+      var ra = _confRank[(a.confidence && a.confidence.overall && a.confidence.overall.level) || ''] || 0;
+      var rb = _confRank[(b.confidence && b.confidence.overall && b.confidence.overall.level) || ''] || 0;
+      return rb - ra;
+    });
+    var html = '<div class="contact-grid">';
+    for (var i = 0; i < sorted.length; i++) {
+      var c = sorted[i];
+      var overall = c.confidence && c.confidence.overall;
+      var tier = tierColor(overall && overall.level);
+      // confidence is a ContactConfidence object ({identity, role, email,
+      // phone, linkedin, freshness, overall} — each {level, reason}), not
+      // a bare 0-100 number. Each channel is shown independently below
+      // rather than blended into one overall bar, so a rock-solid name/role
+      // with an unverified email doesn't read as equally trustworthy as one
+      // where every channel is independently confirmed.
+      html += '<div class="ct-card" style="--tier-color:' + tier + ';">'
+        + (i === 0 && sorted.length > 1 ? '<span class="ct-recommended">Best contact</span>' : '')
+        + '<div class="ct-header">'
+        + '<div class="ct-avatar">' + escHtml(initialsOf(c.name || c.full_name)) + '</div>'
+        + '<div class="ct-id">'
+        + '<div class="ct-name">' + escHtml(c.name || c.full_name || 'Unknown') + '</div>'
+        + (c.role || c.role_title ? '<div class="ct-role">' + escHtml(c.role || c.role_title) + '</div>' : '')
+        + '</div>'
+        + (overall ? '<div class="ct-overall" title="' + escHtml(overall.reason || '') + '"><span class="ct-overall-dot"></span>' + escHtml(overall.level) + '</div>' : '')
+        + '</div>'
+        + (c.detail ? '<div class="ct-detail">' + escHtml(c.detail) + '</div>' : '')
+        + '<div class="ct-channels">'
+        + renderChannelChip('email', 'Email', c.email, c.confidence && c.confidence.email)
+        + renderChannelChip('phone', 'Phone', c.phone, c.confidence && c.confidence.phone)
+        + renderChannelChip('linkedin', 'LinkedIn', c.linkedin_url ? 'View profile' : null, c.confidence && c.confidence.linkedin, c.linkedin_url)
+        + '</div>'
+        + '</div>';
+    }
+    html += '</div>';
+    el.innerHTML = html;
+  } else {
+    var address = company && company.registered_address ? company.registered_address : null;
+    el.innerHTML = '<div class="gap-box">'
+      + '<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="8" r="4"/><path d="M4 21v-1a7 7 0 0114 0v1"/><path d="M3 3l18 18"/></svg>'
+      + '<p>No publicly listed directors, senior management, email, or phone number could be verified.</p>'
+      + '</div>'
+      + (address ? '<div class="office-row">'
+        + '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 21h18M5 21V7l7-4 7 4v14M9 9h1m-1 4h1m4-4h1m-1 4h1"/></svg>'
+        + '<span><strong style="color:var(--text-primary);">Registered office (only verified location):</strong> ' + escHtml(address) + '</span>'
+        + '</div>' : '')
+      + '<div class="recipient-box">'
+      + '<div class="rlabel">Recommended recipient</div>'
+      + '<div class="rvalue">General office / publicly listed company contact — to be identified via regulatory filings or direct enquiry</div>'
+      + '<div class="rreason">Reason: no publicly verified senior decision-maker or direct business email exists in available sources. Do not guess a name or address to reach this firm\'s general channel honestly.</div>'
+      + '</div>';
+  }
+}
+
+// ── Render personalisation ──
+function renderPersonalisation(p) {
+  var el = document.getElementById('d-personalisation');
+  if (!el) return;
+  var refs = (p && p.reference_points) || [];
+  var avoid = (p && p.avoid) || [];
+  if (!refs.length && !avoid.length) {
+    el.innerHTML = '<div class="gap-box" style="grid-column:1/-1;"><p>No specific personalisation reference points or avoidance topics identified from public sources.</p></div>';
+    return;
+  }
+  var html = '';
+  if (refs.length) {
+    html += '<div class="persona-box ref"><div class="list-title pos" style="margin-bottom:8px;">Reference</div><ul>';
+    for (var i = 0; i < refs.length; i++) html += '<li>' + escHtml(refs[i]) + '</li>';
+    html += '</ul></div>';
+  }
+  if (avoid.length) {
+    html += '<div class="persona-box avoid"><div class="list-title" style="color:var(--rose);margin-bottom:8px;">Avoid</div><ul>';
+    for (var i = 0; i < avoid.length; i++) html += '<li>' + escHtml(avoid[i]) + '</li>';
+    html += '</ul></div>';
+  }
+  el.innerHTML = html;
+}
+
+// ── Render discovery questions ──
+function renderDiscovery(questions) {
+  var el = document.getElementById('d-discovery-list');
+  if (!el) return;
+  if (!questions || !questions.length) { el.innerHTML = '<li>No discovery questions generated.</li>'; return; }
+  var html = '';
+  for (var i = 0; i < questions.length; i++) html += '<li>' + escHtml(questions[i]) + '</li>';
+  el.innerHTML = html;
+}
+
+// ── Tab switching ──
+var _hasContacts = false;
+
+function switchAssistantTab(tab) {
+  var tabs = document.querySelectorAll('.tab-btn');
+  for (var i = 0; i < tabs.length; i++) tabs[i].classList.remove('active');
+  var el = document.querySelector('.tab-btn[onclick*="' + tab + '"]');
+  if (el) el.classList.add('active');
+  var tc = document.getElementById('d-tab-content');
+  if (!tc) return;
+  if (tab === 'email') {
+    renderEmailContent();
+    return;
+  }
+  var label = tab === 'linkedin' ? 'LinkedIn message' : 'Call script';
+  var hint = _hasContacts ? 'Use the email above to craft a ' + label + '.' : 'No named recipient available — adapt the email above for general-office outreach.';
+  tc.innerHTML = '<div class="generate-email-state"><p>' + hint + '</p><button class="btn-solid" onclick="switchAssistantTab(\'email\')" style="font-size:11px;">View email</button></div>';
+  document.getElementById('d-compliance-note').style.display = 'none';
+}
+
+// ── Render email content ──
+function renderEmailContent() {
+  var ec = document.getElementById('d-email-content');
+  var tc = document.getElementById('d-tab-content');
+  var cn = document.getElementById('d-compliance-note');
+  if (!ec || !tc) return;
+  tc.innerHTML = ec.innerHTML;
+  if (cn) cn.style.display = '';
+}
+
+// ── Render email ──
+function renderEmail(email, hasContacts) {
+  var ec = document.getElementById('d-email-content');
+  var hint = document.getElementById('d-assistant-hint');
+  _hasContacts = hasContacts;
+  if (!ec) return;
+  if (hint) hint.textContent = hasContacts ? '\u2014 email, LinkedIn message, call script' : '\u2014 general-office outreach, no named recipient available';
+  if (!email || !email.subject) {
+    ec.innerHTML = '<div class="generate-email-state"><p>Generate a personalised outreach email for this lead.</p><button id="btn-gen-email" class="btn-solid" onclick="generateEmail()">Generate Email</button></div>';
+    document.getElementById('d-compliance-note').style.display = 'none';
+  } else {
+    var toField = !hasContacts ? '<div class="email-meta" style="margin-top:4px;"><span class="email-label">To:</span>General office contact (no named recipient identified)</div>' : '';
+    ec.innerHTML = '<div class="email-card">'
+      + '<div class="email-header">'
+      + '<div>'
+      + '<div class="email-meta"><span class="email-label">Subject:</span><span id="d-email-subject">' + escHtml(email.subject) + '</span></div>'
+      + toField
+      + '<div class="email-meta" style="margin-top:4px;"><span class="email-label">From:</span>Brian McClafferty &lt;brian@paybrix.com&gt;</div>'
+      + '</div>'
+      + '<div class="email-actions">'
+      + '<button class="btn-ghost" onclick="copyText(\'d-email-subject\')">Copy subject</button>'
+      + '<button class="btn-solid" onclick="copyText(\'d-email-body\')">Copy email</button>'
+      + '</div>'
+      + '</div>'
+      + '<pre class="email-body" id="d-email-body">' + escHtml(email.body || '') + '</pre>'
+      + '</div>'
+      + '<div style="margin-top:10px;text-align:right;"><button class="btn-ghost" onclick="generateEmail()" style="font-size:11px;">Regenerate</button></div>';
+    document.getElementById('d-compliance-note').style.display = '';
+  }
+  renderEmailContent();
+}
+
+async function refreshContacts() {
+  var id = companyId;
+  var btn = document.getElementById('btn-refresh-contacts');
+  if (btn) { btn.disabled = true; btn.innerHTML = '<span class="inline-spinner"></span>'; }
+  try {
+    var r = await fetch('/api/companies/' + id + '/contacts/refresh', { method: 'POST' });
+    if (!r.ok) { var errData; try { errData = await r.json(); } catch(_){}; throw new Error((errData && errData.detail) || r.statusText); }
+    var data = await r.json();
+    var iv = setInterval(function() {
+      fetch('/api/runs/' + data.run_id).then(function(res) { return res.json(); }).then(function(run) {
+        if (run.status === 'complete' || run.status === 'failed') {
+          clearInterval(iv);
+          if (btn) { btn.disabled = false; btn.innerHTML = '&#x27F3; Refresh'; }
+          if (run.status === 'complete') { showToast('Contacts refreshed', 'success'); loadLead(id); }
+          else { showToast('Contacts refresh failed', 'error'); }
+        }
+      }).catch(function() {});
+    }, 1000);
+  } catch (e) {
+    showToast(e.message || 'Refresh failed', 'error');
+    if (btn) { btn.disabled = false; btn.innerHTML = '&#x27F3; Refresh'; }
+  }
+}
+
+function copyText(id) {
+  var el = document.getElementById(id);
+  if (el) { navigator.clipboard.writeText(el.textContent).then(function(){ showToast('Copied'); }); }
+}
+
+async function generateEmail() {
+  var btn = document.getElementById('btn-gen-email');
+  frontendLog('CLICK GenerateEmail id=' + companyId);
+  if (btn) { btn.disabled = true; btn.innerHTML = '<span class="inline-spinner"></span>Generating\u2026'; }
+  try {
+    var r = await fetch('/api/email/' + companyId, { method:'POST' });
+    frontendLog('EMAIL_RESPONSE id=' + companyId + ' status=' + r.status);
+    if (!r.ok) throw new Error('API error');
+    var data = await r.json();
+    connectRunEvents(data.run_id, { steps: OUTREACH_STEPS, companyName: (_company && _company.legal_name) || '', onDone: function(status) {
+      if (status === 'complete') { showToast('Email generated'); loadLead(companyId); }
+      else {
+        showToast('Email generation failed', 'error');
+        if (btn) { btn.disabled = false; btn.textContent = 'Generate Email'; }
+      }
+    }});
+  } catch(e) {
+    frontendLog('EMAIL_FAIL id=' + companyId + ' error=' + (e.message || ''));
+    showToast('Failed to generate email', 'error');
+    if (btn) { btn.disabled = false; btn.textContent = 'Generate Email'; }
+  }
+}
+
+// ── Reassess function (global scope) ──
+async function reassessLead(id) {
+  var btn = document.getElementById('btn-reassess');
+  if (!btn) return;
+  btn.disabled = true;
+  btn.textContent = 'Reassessing...';
+  showToast('Reassessing lead...', 'info');
+  frontendLog('REASSESS START id=' + id);
+  try {
+    var res = await fetch('/api/enrich/' + id, { method: 'POST' });
+    if (!res.ok) throw new Error('Reassessment failed');
+    var data = await res.json();
+    showToast('Reassessment queued', 'success');
+    frontendLog('REASSESS QUEUED id=' + id + ' run_id=' + data.run_id);
+    connectRunEvents(data.run_id, { steps: ASSESS_STEPS, companyName: (_company && _company.legal_name) || '', onDone: function(status) {
+      btn.disabled = false;
+      btn.textContent = 'Reassess';
+      if (status === 'complete') {
+        loadLead(id);
+        showToast('Reassessment complete', 'success');
+        frontendLog('REASSESS COMPLETE id=' + id);
+      } else {
+        showToast('Reassessment failed', 'error');
+        frontendLog('REASSESS FAIL id=' + id);
+      }
+    }});
+  } catch(e) {
+    console.error('Reassessment error:', e);
+    btn.disabled = false;
+    btn.textContent = 'Reassess';
+    var errorMsg = e.message || 'Unknown error';
+    frontendLog('REASSESS FAIL id=' + id + ' error=' + errorMsg);
+    if (errorMsg.includes('429') || errorMsg.toLowerCase().includes('rate limit')) {
+      showToast('API rate limit reached. Please try again later.', 'error');
+    } else {
+      showToast('Reassessment failed: ' + errorMsg, 'error');
+    }
+  }
+}
+
+async function enrichSingle(id) {
+  var btn = document.getElementById('btn-enrich-single');
+  var errEl = document.getElementById('d-enrich-error');
+  frontendLog('ASSESS CLICKED id=' + id);
+  if (btn) { btn.disabled = true; btn.innerHTML = '<span class="inline-spinner"></span>Assessing\u2026'; }
+  if (errEl) errEl.classList.add('hidden');
+  showToast('Assessing lead...', 'info');
+  try {
+    var r = await fetch('/api/enrich/' + id, { method:'POST' });
+    frontendLog('ASSESS RESPONSE id=' + id + ' status=' + r.status);
+    if (!r.ok) { var errData; try { errData = await r.json(); } catch(_){}; throw new Error((errData && errData.detail) || r.statusText); }
+    var data = await r.json();
+    frontendLog('ASSESS QUEUED id=' + id + ' run_id=' + data.run_id);
+    connectRunEvents(data.run_id, { steps: ASSESS_STEPS, companyName: (_company && _company.legal_name) || '', onDone: function(status) {
+      if (btn) { btn.disabled = false; btn.textContent = 'Assess'; }
+      if (status === 'complete') {
+        frontendLog('ASSESS SUCCESS id=' + id);
+        loadLead(id);
+        showToast('Assessment complete', 'success');
+      } else {
+        frontendLog('ASSESS FAIL id=' + id);
+        showToast('Assessment failed - check logs', 'error');
+      }
+    }});
+  } catch(e) {
+    var errMsg = e.message || 'Assessment failed';
+    frontendLog('ASSESS FAIL id=' + id + ' error=' + errMsg.substring(0, 200));
+    showToast(errMsg, 'error');
+    if (errEl) { errEl.textContent = errMsg; errEl.classList.remove('hidden'); }
+    if (btn) { btn.disabled = false; btn.textContent = 'Assess'; }
+  }
+}
+
+// ── Main loader ──
+async function loadLead(id) {
+  var loading = document.getElementById('detail-loading');
+  var errorEl = document.getElementById('detail-error');
+  var content = document.getElementById('detail-content');
+  loading.classList.remove('hidden');
+  errorEl.classList.add('hidden');
+  content.classList.add('hidden');
+
+  var data;
+  try {
+    var resp = await fetch('/api/leads/' + id);
+    if (!resp.ok) throw new Error('not found');
+    data = await resp.json();
+  } catch(e) {
+    loading.classList.add('hidden');
+    errorEl.classList.remove('hidden');
+    return;
+  }
+  loading.classList.add('hidden');
+
+  var company = data.company || data;
+  _company = company;
+  var enrichment = data.enrichment || {};
+  _enrichment = enrichment;
+  var isEnriched = enrichment && enrichment.qualification_score !== null && enrichment.qualification_score !== undefined;
+  var na = enrichment.narrative_assessment || {};
+  _na = na;
+  var email = data.email || null;
+
+  var notAssessedEl = document.getElementById('d-not-assessed');
+  var assessedContentEl = document.getElementById('d-assessed-content');
+
+  // Resume-on-load: an assess/outreach run may already be in flight for this
+  // company (started before a navigation away, or in another tab) — the run
+  // lives server-side, so reconnect to it instead of showing idle/not-assessed.
+  try {
+    var activeData = await fetch('/api/runs/active').then(function(r) { return r.json(); });
+    var myRun = (activeData.runs || []).find(function(r) {
+      return r.company_id === id && (r.kind === 'assess' || r.kind === 'outreach') && r.status === 'running';
+    });
+    if (myRun) {
+      var resumeSteps = myRun.kind === 'outreach' ? OUTREACH_STEPS : ASSESS_STEPS;
+      if (!isEnriched) {
+        var resumeBtn = document.getElementById('btn-enrich-single');
+        if (resumeBtn) { resumeBtn.disabled = true; resumeBtn.innerHTML = '<span class="inline-spinner"></span>Assessing…'; }
+        connectRunEvents(myRun.run_id, {
+          steps: resumeSteps, companyName: (company && company.legal_name) || '',
+          onDone: function(status) {
+            if (resumeBtn && status !== 'complete') { resumeBtn.disabled = false; resumeBtn.textContent = 'Assess'; }
+            loadLead(id);
+          },
+        });
+      } else {
+        var resumeReassessBtn = document.getElementById('btn-reassess');
+        if (resumeReassessBtn) { resumeReassessBtn.disabled = true; resumeReassessBtn.textContent = myRun.kind === 'outreach' ? 'Generating…' : 'Reassessing...'; }
+        connectRunEvents(myRun.run_id, {
+          steps: resumeSteps, companyName: (company && company.legal_name) || '',
+          onDone: function(status) {
+            if (resumeReassessBtn) { resumeReassessBtn.disabled = false; resumeReassessBtn.textContent = 'Reassess'; }
+            loadLead(id);
+          },
+        });
+      }
+    }
+  } catch (e) { /* non-fatal — resume is best-effort */ }
+
+  if (!isEnriched) {
+    if (notAssessedEl) notAssessedEl.classList.remove('hidden');
+    if (assessedContentEl) assessedContentEl.classList.add('hidden');
+    var btn = document.getElementById('btn-enrich-single');
+    if (btn) btn.onclick = function() { enrichSingle(id); };
+    content.classList.remove('hidden');
+    return;
+  }
+  if (notAssessedEl) notAssessedEl.classList.add('hidden');
+  if (assessedContentEl) assessedContentEl.classList.remove('hidden');
+
+  try {
+  document.title = (company.legal_name || 'Lead') + ' | Insurance Lead Engine';
+
+  // Badge
+  var badge = document.getElementById('d-badge');
+  var isActive = (company.cro_status || '').toLowerCase() === 'normal';
+  badge.className = 'badge ' + (isActive ? 'badge-verified' : 'badge-dissolved');
+  badge.textContent = isActive ? 'Verified \u00b7 Active' : (company.cro_status || 'Unknown');
+
+  // Name
+  document.getElementById('d-legal-name').textContent = company.legal_name || '--';
+  document.getElementById('d-trading-name').textContent = company.trading_name ? 'Trading as ' + company.trading_name : 'No trading name publicly identified';
+
+  // Facts
+  document.getElementById('d-county').textContent = company.county || '--';
+  document.getElementById('d-cro-status').textContent = company.cro_status ? company.cro_status + ' (Normal)' : '--';
+  document.getElementById('d-incorp').textContent = formatDate(company.incorporation_date);
+  var years = yearsFrom(company.incorporation_date);
+  document.getElementById('d-years-op').textContent = years != null ? years : '--';
+  document.getElementById('d-cro-number').textContent = company.cro_number || '--';
+
+  // Extra facts
+  var facts = document.getElementById('d-facts');
+  if (enrichment.generated_at) {
+    var el = document.createElement('div'); el.className = 'id-fact';
+    el.innerHTML = '<span class="id-fact-label">Assessed</span><span class="id-fact-value">' + escHtml(formatDateTime(enrichment.generated_at)) + '</span>';
+    facts.appendChild(el);
+  }
+  if (company.cbi_reference) {
+    var el = document.createElement('div'); el.className = 'id-fact';
+    el.innerHTML = '<span class="id-fact-label">CBI Reference</span><span class="id-fact-value mono">' + escHtml(company.cbi_reference) + '</span>';
+    facts.appendChild(el);
+  }
+  if (enrichment.employee_band) {
+    var el = document.createElement('div'); el.className = 'id-fact';
+    el.innerHTML = '<span class="id-fact-label">Est. employees</span><span class="id-fact-value">' + escHtml(enrichment.employee_band) + '</span>';
+    facts.appendChild(el);
+  }
+  var cbiAuths = company.cbi_authorisations;
+  if (Array.isArray(cbiAuths) && cbiAuths.length) {
+    var el = document.createElement('div'); el.className = 'id-fact';
+    el.innerHTML = '<span class="id-fact-label">CBI Authorisations</span><span class="id-fact-value">' + cbiAuths.length + ' (' + escHtml(cbiAuths.join(', ')) + ')</span>';
+    facts.appendChild(el);
+  }
+
+  // Website block
+  var wb = document.getElementById('d-website-block');
+  var digital = na.digital_presence || {};
+  if (digital.has_website && digital.domain) {
+    wb.innerHTML = '<div class="id-website"><a href="https://' + escHtml(digital.domain) + '" target="_blank" rel="noopener">'
+      + '<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M10 13a5 5 0 007.07 0l1.41-1.41a5 5 0 00-7.07-7.07L10 6"/><path d="M14 11a5 5 0 00-7.07 0L5.5 12.4a5 5 0 007.07 7.07L14 18"/></svg>'
+      + escHtml(digital.domain) + '</a></div>';
+  } else if (Object.keys(enrichment).length) {
+    wb.innerHTML = '<div class="no-website-box">'
+      + '<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 9v2m0 4h.01M10.29 3.86L1.82 18a2 2 0 001.71 3h16.94a2 2 0 001.71-3L13.71 3.86a2 2 0 00-3.42 0z"/></svg>'
+      + 'No verified official website identified'
+      + '</div>';
+  }
+
+  // Confidence ring (research_confidence)
+  var rc = na.research_confidence || enrichment.research_confidence;
+  if (rc != null) {
+    var rcPct = typeof rc === 'number' && rc <= 1 ? Math.round(rc * 100) : Math.round(rc);
+    var level = confidenceLevel(rcPct);
+    renderRing(rcPct, level);
+  }
+
+  // Business Fit Score (qualification_score)
+  var qs = enrichment.qualification_score;
+  if (qs != null) {
+    var fitWrap = document.getElementById('d-fit-score-wrap');
+    var fitNum = document.getElementById('d-fit-score-num');
+    var fitLabel = document.getElementById('d-fit-score-label');
+    var fitRingWrap = document.getElementById('d-fit-ring-wrap');
+    var fitRingNum = document.getElementById('d-fit-ring-num');
+    var fitRingFill = document.getElementById('d-fit-ring-fill');
+    if (fitWrap && fitNum && fitLabel) {
+      fitNum.textContent = qs;
+      var fitColor, fitText;
+      if (qs >= 70) { fitColor = 'var(--teal)'; fitText = 'Strong'; }
+      else if (qs >= 40) { fitColor = 'var(--amber)'; fitText = 'Moderate'; }
+      else { fitColor = 'var(--rose)'; fitText = 'Low'; }
+      fitNum.style.color = fitColor;
+      fitLabel.textContent = fitText;
+      fitLabel.style.color = fitColor;
+      fitLabel.style.background = fitColor.replace(')', ', 0.15)').replace('var(', 'rgba(').replace('var(--teal)', 'rgba(20,200,160,0.15)').replace('var(--amber)', 'rgba(56,189,248,0.15)').replace('var(--rose)', 'rgba(244,63,94,0.15)');
+      fitWrap.style.display = 'block';
+    }
+    // Render the fit ring visualization
+    if (fitRingWrap && fitRingFill && fitRingNum) {
+      var fitPct = Math.min(100, Math.max(0, qs));
+      var fitLevel = confidenceLevel(fitPct);
+      var circ = 138.2;
+      var off = circ * (1 - fitPct / 100);
+      fitRingFill.setAttribute('stroke-dashoffset', off.toFixed(1));
+      fitRingFill.setAttribute('stroke', fitLevel === 'high' ? 'var(--teal)' : fitLevel === 'medium' ? 'var(--amber)' : 'var(--rose)');
+      fitRingNum.textContent = fitPct;
+      fitRingNum.style.color = fitLevel === 'high' ? 'var(--teal)' : fitLevel === 'medium' ? 'var(--amber)' : 'var(--rose)';
+      fitRingWrap.style.display = 'flex';
+    }
+  }
+
+  // Scorecard
+  renderScorecard(na.opportunity_signal || enrichment.opportunity_signal);
+
+  // Executive summary
+  var signalStr = enrichment.signal_strength || 'medium';
+  var execHeadline = document.getElementById('d-exec-headline');
+  if (execHeadline) {
+    execHeadline.className = 'exec-headline ' + confidenceLevel(signalStr === 'high' ? 80 : signalStr === 'medium' ? 50 : 20);
+    execHeadline.textContent = 'Executive Assessment';
+  }
+  var execSummary = document.getElementById('d-exec-summary');
+  if (execSummary) execSummary.textContent = na.executive_summary || enrichment.executive_summary || '';
+
+  // Research coverage
+  renderCoverage(na.research_coverage, na.sources_reviewed || enrichment.sources_reviewed);
+
+  // Digital presence
+  renderDigital(na.digital_presence || digital);
+
+  // Contacts
+  var contacts = na.contacts || [];
+  renderContacts(contacts, company);
+
+  // Personalisation
+  renderPersonalisation(na.personalisation || enrichment.personalisation);
+
+  // Discovery questions
+  renderDiscovery(na.discovery_questions || enrichment.discovery_questions || []);
+
+  // Opening angle
+  var angleEl = document.getElementById('d-opening-angle');
+  if (angleEl) angleEl.textContent = na.opening_angle || enrichment.opening_angle || '';
+
+  // Email
+  renderEmail(email, contacts.length > 0);
+
+  // Assistant toggle
+  document.getElementById('d-assistant-toggle').onclick = function(){
+    document.getElementById('d-assistant-card').classList.toggle('open');
+  };
+
+  // Reassess button
+  var reassessBtn = document.getElementById('btn-reassess');
+  if (reassessBtn) {
+    reassessBtn.onclick = function() {
+      reassessLead(companyId);
+    };
+  }
+
+  // Raw JSON
+  var rawEl = document.getElementById('d-raw-json');
+  if (rawEl) rawEl.textContent = JSON.stringify(data.company || data, null, 2);
+
+  content.classList.remove('hidden');
+  } catch(e) {
+    console.error('Render error:', e);
+    content.classList.remove('hidden');
+  }
+}
+
+if (companyId) loadLead(companyId);
+</script>
+
+<!-- ============================================================
+     Pay Brix Division — Floating Theme Toggle (verbatim spec pattern)
+     ============================================================ -->
+<button id="pb-theme-toggle" onclick="pbToggleTheme()" title="Toggle light / dark theme" aria-label="Toggle theme">
+  <svg id="pb-icon-moon" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+    <path stroke-linecap="round" stroke-linejoin="round" d="M20.354 15.354A9 9 0 018.646 3.646 9.003 9.003 0 0012 21a9.003 9.003 0 008.354-5.646z"/>
+  </svg>
+  <svg id="pb-icon-sun" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24" style="display:none;">
+    <path stroke-linecap="round" stroke-linejoin="round" d="M12 3v1m0 16v1m9-9h-1M4 12H3m15.364-6.364l-.707.707M6.343 17.657l-.707.707m0-12.728l.707.707m12.728 12.728l.707.707M12 8a4 4 0 100 8 4 4 0 000-8z"/>
+  </svg>
+</button>
+
+<script>
+  (function pbThemeInit() {
+    /* Apply saved theme instantly before paint — no transition flash */
+    var savedTheme = localStorage.getItem('pb-theme');
+    if (savedTheme === 'light') {
+      document.body.classList.add('theme-switching', 'light-theme');
+      requestAnimationFrame(function() {
+        requestAnimationFrame(function() {
+          document.body.classList.remove('theme-switching');
+        });
+      });
+      var moon = document.getElementById('pb-icon-moon');
+      var sun  = document.getElementById('pb-icon-sun');
+      if (moon) moon.style.display = 'none';
+      if (sun)  sun.style.display  = '';
+    }
+  })();
+
+  function pbToggleTheme() {
+    /* 1. Freeze all transitions so the swap is instant */
+    document.body.classList.add('theme-switching');
+
+    /* 2. Perform the actual toggle */
+    var isLight = document.body.classList.toggle('light-theme');
+    localStorage.setItem('pb-theme', isLight ? 'light' : 'dark');
+
+    var moon = document.getElementById('pb-icon-moon');
+    var sun  = document.getElementById('pb-icon-sun');
+    if (moon) moon.style.display = isLight ? 'none' : '';
+    if (sun)  sun.style.display  = isLight ? '' : 'none';
+
+    /* 3. Re-enable transitions after two animation frames */
+    requestAnimationFrame(function() {
+      requestAnimationFrame(function() {
+        document.body.classList.remove('theme-switching');
+      });
+    });
+  }
+</script>
+
+</body>
+</html>
