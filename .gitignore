@@ -85,3 +85,6 @@ claude code first prompt.md
 # Local backup of pre-reset git history (not part of the repo)
 .git.pre-fresh-backup-*/
 scratch/
+
+# Superpowers brainstorming-companion mockups (local scratch, not repo content)
+.superpowers/
