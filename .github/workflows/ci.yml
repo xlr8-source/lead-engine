@@ -1,0 +1,28 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+jobs:
+  precision-audit:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0   # full history so validate_repo.py can check commit ranges
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.x'
+      - name: Validate repo structure and Session Log
+        run: python3 scripts/validate_repo.py .
+
+  # Add your real build/test steps below — this skeleton only wires up the
+  # precision audit so Session Log integrity is checked on every push/PR.
+  # build-and-test:
+  #   runs-on: ubuntu-latest
+  #   steps:
+  #     - uses: actions/checkout@v4
+  #     - run: [your build/test commands]

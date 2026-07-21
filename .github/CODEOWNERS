@@ -1,0 +1,8 @@
+# CODEOWNERS
+# Each line: a path pattern followed by the GitHub usernames/teams that must
+# review changes to it. Replace the placeholders below with real handles.
+# Docs: https://docs.github.com/en/repositories/managing-your-repositorys-settings-and-features/customizing-your-repository/about-code-owners
+
+*                   @xlr8-source
+/.github/           @xlr8-source
+/README.md          @xlr8-source
