@@ -659,6 +659,66 @@ function confidenceLevel(val) {
   return 'low';
 }
 
+// ── Shared contact-rendering helpers (also used by lead.htm) ──
+var CHANNEL_ICONS = {
+  email: '<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 4h16v16H4z" opacity="0"/><path stroke-linecap="round" stroke-linejoin="round" d="M3 6l9 7 9-7M4 5h16v14H4z"/></svg>',
+  phone: '<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M22 16.92v3a2 2 0 01-2.18 2 19.79 19.79 0 01-8.63-3.07 19.5 19.5 0 01-6-6 19.79 19.79 0 01-3.07-8.67A2 2 0 014.11 2h3a2 2 0 012 1.72c.127.96.362 1.903.7 2.81a2 2 0 01-.45 2.11L8.09 9.91a16 16 0 006 6l1.27-1.27a2 2 0 012.11-.45c.907.338 1.85.573 2.81.7A2 2 0 0122 16.92z"/></svg>',
+  linkedin: '<svg width="12" height="12" viewBox="0 0 24 24" fill="currentColor"><path d="M20.5 2h-17A1.5 1.5 0 002 3.5v17A1.5 1.5 0 003.5 22h17a1.5 1.5 0 001.5-1.5v-17A1.5 1.5 0 0020.5 2zM8 19H5v-9h3zM6.5 8.25A1.75 1.75 0 118.3 6.5a1.78 1.78 0 01-1.8 1.75zM19 19h-3v-4.74c0-1.42-.6-1.93-1.38-1.93A1.74 1.74 0 0013 14.19a.66.66 0 000 .14V19h-3v-9h2.9v1.3a3.11 3.11 0 012.7-1.4c1.55 0 3.36.86 3.36 3.66z"/></svg>',
+};
+var _confRank = { high: 3, medium: 2, low: 1 };
+
+function tierColor(level) {
+  return level === 'high' ? 'var(--teal)' : level === 'medium' ? 'var(--blue)' : level === 'low' ? 'var(--rose)' : 'var(--text-muted)';
+}
+
+function initialsOf(name) {
+  var parts = (name || '').trim().split(/\s+/).filter(Boolean);
+  if (!parts.length) return '?';
+  if (parts.length === 1) return parts[0].slice(0, 2).toUpperCase();
+  return (parts[0][0] + parts[parts.length - 1][0]).toUpperCase();
+}
+
+var _ctReasonSeq = 0;
+function renderChannelChip(kind, label, value, conf, linkHref) {
+  var level = conf ? conf.level : null;
+  var color = tierColor(level);
+  var reasonId = 'ct-reason-' + (_ctReasonSeq++);
+  var displayValue = value
+    ? (linkHref ? '<a href="' + escHtml(linkHref) + '" target="_blank" rel="noopener">' + escHtml(value) + '</a>' : escHtml(value))
+    : 'Not available';
+  var reason = (conf && conf.reason) || 'No evidence available for this channel.';
+  return '<div class="ct-channel ' + (value ? 'has-value' : 'unavailable') + '">'
+    + '<span class="ct-channel-icon" style="--channel-color:' + color + ';">' + CHANNEL_ICONS[kind] + '</span>'
+    + '<span class="ct-channel-val">' + displayValue + '</span>'
+    + (conf ? '<button type="button" class="ct-why" aria-expanded="false" onclick="toggleCtReason(\'' + reasonId + '\', this)" title="Why this confidence level?">?</button>' : '')
+    + '</div>'
+    + (conf ? '<div class="ct-reason" id="' + reasonId + '">' + escHtml(reason) + '</div>' : '');
+}
+
+function toggleCtReason(id, btn) {
+  var el = document.getElementById(id);
+  if (!el) return;
+  var open = el.classList.toggle('open');
+  btn.setAttribute('aria-expanded', open ? 'true' : 'false');
+}
+
+// Best-evidenced contact first — used by both the full detail page's
+// multi-contact list and the preview panel's single "best contact" card,
+// so the two surfaces can never disagree about who the recommended
+// contact is.
+function sortContactsByConfidence(contacts) {
+  return (contacts || []).slice().sort(function(a, b) {
+    var ra = _confRank[(a.confidence && a.confidence.overall && a.confidence.overall.level) || ''] || 0;
+    var rb = _confRank[(b.confidence && b.confidence.overall && b.confidence.overall.level) || ''] || 0;
+    return rb - ra;
+  });
+}
+
+function bestContact(contacts) {
+  var sorted = sortContactsByConfidence(contacts);
+  return sorted.length ? sorted[0] : null;
+}
+
 // NOTE: loadLeadDetail() and its dedicated helpers (yearsSince,
 // setDetailAssessmentLoading, signalLevelLabel, signalPct, copyEmail,
 // copySubject) were removed 2026-07 — lead.htm has its own self-contained
