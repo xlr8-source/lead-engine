@@ -10,7 +10,7 @@
 <meta name="description" content="Irish insurance intermediary lead intelligence platform">
 <link rel="preconnect" href="https://fonts.googleapis.com/">
 <link rel="preconnect" href="https://fonts.gstatic.com/" crossorigin="">
-<link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&family=Inter:wght@300;400;500;600;700&family=JetBrains+Mono:wght@500;600&display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&family=Inter:wght@300;400;500;600;700&family=Sora:wght@600;700&family=JetBrains+Mono:wght@500;600&display=swap" rel="stylesheet">
 <link rel="stylesheet" href="/static/style.css">
 <style>
   /* ============================================================
@@ -859,7 +859,7 @@
     display: flex; align-items: center; justify-content: space-between;
     padding: 16px 20px; border-bottom: 1px solid var(--border); flex-shrink: 0;
   }
-  .lp-header-title { font-size: 14px; font-weight: 600; color: var(--text-primary); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .lp-header-title { font-family:'Sora',sans-serif; font-size: 15px; font-weight: 700; color: var(--text-primary); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
   .lp-close {
     background: none; border: none; color: var(--text-muted); font-size: 22px;
     line-height: 1; cursor: pointer; padding: 4px 8px; border-radius: 6px; flex-shrink: 0;
@@ -920,6 +920,13 @@
   .persona-box{ border-radius:var(--radius-md); padding:14px; }
   .persona-box.ref{ background:var(--teal-dim); border:1px solid rgba(52,211,153,0.25); }
   .persona-box p{ margin:0; font-size:12.5px; color:var(--text-secondary); line-height:1.6; }
+
+  .section-title{ display:flex; align-items:center; gap:10px; margin-bottom:16px; }
+  .section-icon{ width:26px; height:26px; border-radius:var(--radius-sm); display:flex; align-items:center; justify-content:center; flex-shrink:0; }
+  .section-title h2{ font-family:'Sora',sans-serif; font-size:14px; font-weight:700; margin:0; }
+  .exec-text{ font-size:14px; color:var(--text-secondary); line-height:1.7; margin:0; }
+  .angle-box{ background:var(--amber-dim); border:1px solid rgba(56,189,248,0.25); border-radius:var(--radius-md); padding:16px; }
+  .angle-box p{ margin:0; font-size:13.5px; color:var(--text-primary); line-height:1.6; }
 
   .btn-solid{
     font-size:11px; font-weight:700; padding:8px 18px; border-radius:8px;
