@@ -803,7 +803,7 @@ function renderConfidenceRingHtml(rc) {
   var color = level === 'high' ? 'var(--teal)' : level === 'medium' ? 'var(--amber)' : 'var(--rose)';
   var circ = 138.2;
   var off = (circ * (1 - pct / 100)).toFixed(1);
-  return '<div class="confidence-ring-wrap">'
+  return '<div class="confidence-ring-wrap" style="margin-top:0; flex-shrink:0;">'
     + '<svg class="confidence-ring" width="52" height="52" viewBox="0 0 52 52">'
     + '<circle cx="26" cy="26" r="22" fill="none" stroke="var(--border-panel-light)" stroke-width="5"/>'
     + '<circle cx="26" cy="26" r="22" fill="none" stroke="' + color + '" stroke-width="5" stroke-linecap="round" stroke-dasharray="' + circ + '" stroke-dashoffset="' + off + '" transform="rotate(-90 26 26)"/>'
@@ -873,7 +873,9 @@ function renderLeadPreview(detail) {
   if (contact) {
     var overall = contact.confidence && contact.confidence.overall;
     var tier = tierColor(overall && overall.level);
-    contactHtml = '<div class="lp-section card"><div class="scorecard-title">Contact</div>'
+    contactHtml = '<div class="lp-section card"><div class="section-title">'
+      + '<div class="section-icon" style="background:var(--amber-dim);"><svg width="14" height="14" fill="none" stroke="var(--amber)" stroke-width="2" viewBox="0 0 24 24"><path d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z"/></svg></div>'
+      + '<h2>Contact</h2></div>'
       + '<div class="ct-card" style="--tier-color:' + tier + ';">'
       + '<div class="ct-header">'
       + '<div class="ct-avatar">' + escHtml(initialsOf(contact.name || contact.full_name)) + '</div>'
@@ -890,7 +892,9 @@ function renderLeadPreview(detail) {
       + '</div></div>';
   } else {
     var address = company.registered_address;
-    contactHtml = '<div class="lp-section card"><div class="scorecard-title">Contact</div>'
+    contactHtml = '<div class="lp-section card"><div class="section-title">'
+      + '<div class="section-icon" style="background:var(--amber-dim);"><svg width="14" height="14" fill="none" stroke="var(--amber)" stroke-width="2" viewBox="0 0 24 24"><path d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z"/></svg></div>'
+      + '<h2>Contact</h2></div>'
       + '<div class="lp-loading">No publicly listed directors, senior management, email, or phone number could be verified.'
       + (address ? '<br><strong>Registered office:</strong> ' + escHtml(address) : '')
       + '</div></div>';
@@ -901,13 +905,17 @@ function renderLeadPreview(detail) {
   var bizFit = businessFitDimension(na.opportunity_signal || enrichment.opportunity_signal);
   var rc = na.research_confidence != null ? na.research_confidence : enrichment.research_confidence;
   var scoreHtml = '<div class="lp-section card">'
+    + '<div style="display:flex; align-items:center; justify-content:space-between; gap:16px;">'
+    + '<div>'
     + '<div style="font-size:10px; text-transform:uppercase; letter-spacing:0.08em; color:var(--text-muted); font-weight:700; margin-bottom:3px;">Overall Fit Score</div>'
     + '<div style="display:flex; align-items:baseline; gap:4px;">'
     + '<span style="font-size:22px; font-weight:800; font-family:\'Sora\',sans-serif; color:' + fitColors.color + ';">' + escHtml(String(score)) + '</span>'
     + '<span style="font-size:12px; color:var(--text-muted);">/100</span>'
-    + '<span style="margin-left:6px; font-size:10px; font-weight:700; text-transform:uppercase; letter-spacing:0.06em; padding:2px 6px; border-radius:4px; color:' + fitColors.color + '; background:' + fitColors.bg + ';">' + fitColors.text + '</span>'
+    + '</div>'
+    + '<span style="display:inline-block; margin-top:5px; font-size:10px; font-weight:700; text-transform:uppercase; letter-spacing:0.06em; padding:2px 6px; border-radius:4px; color:' + fitColors.color + '; background:' + fitColors.bg + ';">' + fitColors.text + '</span>'
     + '</div>'
     + renderConfidenceRingHtml(rc)
+    + '</div>'
     + (bizFit ? '<div class="score-row ' + levelClass(bizFit.dim.level) + '" style="margin-top:14px;">'
       + '<div class="score-row-top"><span class="score-row-label">' + escHtml(OPP_SIGNAL_LABELS[bizFit.key]) + '</span><span class="score-row-level">' + Math.round(bizFit.pct) + '%</span></div>'
       + '<div class="score-track"><div class="score-fill" style="width:' + Math.max(2, Math.min(100, Math.round(bizFit.pct))) + '%"></div></div>'
@@ -918,8 +926,10 @@ function renderLeadPreview(detail) {
   var summary = na.executive_summary || enrichment.executive_summary || '';
   var angle = na.opening_angle || enrichment.opening_angle || '';
   var narrativeHtml = ''
-    + (summary ? '<div class="lp-section card"><div class="scorecard-title">Why This Score</div><p style="font-size:13px; line-height:1.6; color:var(--text-secondary); margin:0;">' + escHtml(summary) + '</p></div>' : '')
-    + (angle ? '<div class="lp-section card card-highlight"><div class="list-title pos">Approach</div><div class="persona-box ref"><p>' + escHtml(angle) + '</p></div></div>' : '');
+    + (summary ? '<div class="lp-section card"><div class="section-title"><h2>Why This Score</h2></div><p class="exec-text">' + escHtml(summary) + '</p></div>' : '')
+    + (angle ? '<div class="lp-section card card-highlight"><div class="section-title">'
+      + '<div class="section-icon" style="background:var(--blue-dim);"><svg width="14" height="14" fill="none" stroke="var(--blue)" stroke-width="2" viewBox="0 0 24 24"><path d="M13 2L3 14h7l-1 8 10-12h-7l1-8z"/></svg></div>'
+      + '<h2>Approach</h2></div><div class="angle-box"><p>' + escHtml(angle) + '</p></div></div>' : '');
 
   var profileLinkHtml = '<div class="lp-section"><a class="btn-solid full-width" style="display:block; text-align:center; text-decoration:none; box-sizing:border-box;" href="/lead/' + escHtml(company.id) + '">Open Full Profile →</a></div>';
 
