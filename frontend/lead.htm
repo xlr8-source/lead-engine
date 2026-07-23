@@ -581,7 +581,6 @@ details.raw pre{ margin:0 20px 18px; font-size:11px; color:var(--text-muted); ba
         <div class="id-fact"><span class="id-fact-label">Years operating</span><span class="id-fact-value mono" id="d-years-op">--</span></div>
         <div class="id-fact"><span class="id-fact-label">CRO Number</span><span class="id-fact-value mono" id="d-cro-number">--</span></div>
         <div class="id-fact" id="d-fact-cbi" style="display:none;"><span class="id-fact-label">CBI Reference</span><span class="id-fact-value mono" id="d-cbi-ref">--</span></div>
-        <div class="id-fact" id="d-fact-employees" style="display:none;"><span class="id-fact-label">Est. employees</span><span class="id-fact-value" id="d-employees">--</span></div>
       </div>
       <div id="d-website-block"></div>
     </div>
@@ -1462,11 +1461,6 @@ async function loadLead(id) {
   if (company.cbi_reference) {
     var el = document.createElement('div'); el.className = 'id-fact';
     el.innerHTML = '<span class="id-fact-label">CBI Reference</span><span class="id-fact-value mono">' + escHtml(company.cbi_reference) + '</span>';
-    facts.appendChild(el);
-  }
-  if (enrichment.employee_band) {
-    var el = document.createElement('div'); el.className = 'id-fact';
-    el.innerHTML = '<span class="id-fact-label">Est. employees</span><span class="id-fact-value">' + escHtml(enrichment.employee_band) + '</span>';
     facts.appendChild(el);
   }
   var cbiAuths = company.cbi_authorisations;
