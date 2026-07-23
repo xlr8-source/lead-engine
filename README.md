@@ -294,6 +294,28 @@ Built for PayBrix, a payment-collection and receivables-automation platform for 
 <!-- SESSION_LOG_START
 [
   {
+    "id": "S-0001",
+    "date": "2026-07-23T13:44:17Z",
+    "author": "xlr8-source",
+    "branch": "main",
+    "commit_range": "45d1d4f..f52bfb3f193914e67840bd78d68ef909ea141c59",
+    "summary": "Shipped the lead preview panel (boss-feedback origin: quick contact/score/approach view from the leads list, no new backend endpoint) via full brainstorm-spec-plan-subagent pipeline, then two same-day hardening rounds. Round 1: panel restyled to match lead.htm's exact PayBrix visual language in both themes (fixed a missing Sora font import that was silently breaking every title), added the preview button to Top Opportunities, removed the unfetchable Size/employee_band column everywhere. Round 2 (backend root-cause fixes): rewrote the CBI PDF parser to be column-aware instead of flowing text across columns, fixing a data-corruption bug where a firm's EU Freedom-of-Services passporting list bled into its trading_name and registered_address (the Clements Insurance case \u2014 wrongly read as 'a multinational, not an independent Irish intermediary'; validated against the full live 2391-record register, 0 residual artifacts); added honest 'found but blocked' reporting when a real site (e.g. Cloudflare-protected) can't be fetched, replacing a false 'no website' conclusion, without attempting to bypass any bot/WAF challenge. Round 3 (panel UI polish): reordered panel cards, added a draggable resize handle, docked the AI-activity popup beside the panel instead of overlapping it, unified an Overall Fit ring (repairing a pre-existing dead feature \u2014 the JS referenced ids that were never in the markup) and a fixed-light-blue research-confidence ring across lead.htm and the panel, kept Business Fit as a ring in the panel only. Fixed a light-mode contrast bug where the top stat-card titles used a hardcoded near-white color instead of the theme-aware token. All work developed in an isolated git worktree, then merged into main.",
+    "files_changed": [
+      "docs/superpowers/plans/2026-07-21-lead-preview-panel.md",
+      "engine/llm/summarise.py",
+      "engine/research/extract.py",
+      "engine/researcher.py",
+      "frontend/app.js",
+      "frontend/index.htm",
+      "frontend/lead.htm",
+      "ingestion/cbi_parser.py",
+      "tests/test_engine_research.py",
+      "tests/test_ingestion_pipeline.py"
+    ],
+    "tests": "72/72 passing (tests/test_ingestion_pipeline.py, tests/test_engine_research.py, tests/test_governor.py)",
+    "status": "done"
+  },
+  {
     "id": "S-0000",
     "date": "2026-07-21T14:51:39Z",
     "author": "xlr8-source",
@@ -324,4 +346,5 @@ SESSION_LOG_END -->
 
 | Session | Date (UTC) | Author | Branch | Summary | Status |
 |---|---|---|---|---|---|
-| S-0000 | 2026-07-21 14:51:39 | xlr8-source | main | Repository history consolidated into a single clean commit. Cumulative state: ingestion pipeline hardened per the 2026-07-20 Product Board audit (42/100 to 80/100); enrichment research layer hardened against five field-observed failures (website identity verification, contact plausibility filtering, team-page discovery, research speed, two prompt bugs); validated on a real 15-firm run plus a deep single-firm methodology; UI shows assessment date/time; LICENSE, SECURITY.md, CODE_OF_CONDUCT.md, and CI precision-audit added; dead Neo4j dependency fully removed. | 🟢 done |
+| S-0001 | 2026-07-23 13:44:17 | xlr8-source | main | Shipped the lead preview panel (boss-feedback origin: quick contact/score/approach view from the leads list, no new backend endpoint) via full brainstorm-spec-plan-subagent pipeline, then two same-day hardening rounds. Round 1: panel restyled to match lead.htm's exact PayBrix visual language in both themes (fixed a missing Sora font import that was silently breaking every title), added the preview button to Top Opportunities, removed the unfetchable Size/employee_band column everywhere. Round 2 (backend root-cause fixes): rewrote the CBI PDF parser to be column-aware instead of flowing text across columns, fixing a data-corruption bug where a firm's EU Freedom-of-Services passporting list bled into its trading_name and registered_address (the Clements Insurance case — wrongly read as 'a multinational, not an independent Irish intermediary'; validated against the full live 2391-record register, 0 residual artifacts); added honest 'found but blocked' reporting when a real site (e.g. Cloudflare-protected) can't be fetched, replacing a false 'no website' conclusion, without attempting to bypass any bot/WAF challenge. Round 3 (panel UI polish): reordered panel cards, added a draggable resize handle, docked the AI-activity popup beside the panel instead of overlapping it, unified an Overall Fit ring (repairing a pre-existing dead feature — the JS referenced ids that were never in the markup) and a fixed-light-blue research-confidence ring across lead.htm and the panel, kept Business Fit as a ring in the panel only. Fixed a light-mode contrast bug where the top stat-card titles used a hardcoded near-white color instead of the theme-aware token. All work developed in an isolated git worktree, then merged into main. | 🟢 done |
+| S-0000 | 2026-07-21 14:51:39 | xlr8-source | main | Repository history consolidated into a single clean commit. Cumulative state as of this reset: ingestion pipeline hardened per the 2026-07-20 Product Board audit (fuzzy CRO near-miss handling, degraded-run reporting, normalized-name dedup, retry-with-backoff on external fetches; 42/100 to 80/100). Enrichment research layer hardened against five field-observed failures: unverified websites no longer attached without identity proof, hallucinated contacts filtered before storage, team/staff pages discovered via nav links instead of a fixed path list, research parallelized (~13s/firm), and two prompt bugs fixed (personalisation ordering, generate_email reading the correct key). Validated against hand-researched ground truth on a real 15-firm run plus a deep single-firm methodology. UI shows assessment date/time. Repository hardened for collaboration: LICENSE restricted to Sremium Limited and its members, SECURITY.md and CODE_OF_CONDUCT.md added, CI precision-audit wired up (scripts/validate_repo.py, scripts/new_session_entry.py), and a dead Neo4j dependency fully removed from code, config, and docs. | 🟢 done |
