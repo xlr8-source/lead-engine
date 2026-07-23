@@ -754,10 +754,156 @@ function closeLeadPreview() {
   _leadPreviewCurrentId = null;
 }
 
-// Placeholder for Task 4 — replaced there with the real fetch+render.
-function fetchAndRenderLeadPreview(id) {
+async function fetchAndRenderLeadPreview(id) {
   var body = document.getElementById('lp-body');
-  if (body) body.innerHTML = '<div class="lp-loading">Loading… (rendering not implemented yet)</div>';
+  if (!body) return;
+  try {
+    var detail = await apiFetch('/api/leads/' + id);
+  } catch (e) {
+    if (_leadPreviewCurrentId !== id) return; // panel moved on to a different lead
+    renderLeadPreviewError(id, e && e.message ? e.message : 'Failed to load preview.');
+    return;
+  }
+  if (_leadPreviewCurrentId !== id) return; // user opened a different row while this was in flight
+  renderLeadPreview(detail);
+}
+
+// Second, independent copy of lead.htm's yearsFrom() (frontend/lead.htm:969) —
+// a 4-line pure function; not worth a cross-file dependency for this alone
+// (the two files already each keep their own copy of escHtml for the same
+// reason).
+function yearsFrom(iso) {
+  if (!iso) return null;
+  try { return new Date().getFullYear() - parseInt(iso.slice(0, 4)); }
+  catch (e) { return null; }
+}
+
+var OPP_SIGNAL_ORDER = ['business_fit', 'regulatory_fit', 'digital_maturity', 'evidence_coverage', 'payment_visibility', 'decision_maker_access'];
+var OPP_SIGNAL_LABELS = {
+  business_fit: 'Business fit',
+  regulatory_fit: 'Regulatory fit',
+  digital_maturity: 'Digital maturity',
+  evidence_coverage: 'Evidence coverage',
+  payment_visibility: 'Payment visibility',
+  decision_maker_access: 'Decision-maker access',
+};
+
+// Highest-pct dimension wins; business_fit wins ties because it's first in
+// OPP_SIGNAL_ORDER and only a strictly-greater pct replaces the running
+// best — see the design spec's tie-break rule.
+function topOpportunityDimension(signal) {
+  if (!signal) return null;
+  var best = null;
+  for (var i = 0; i < OPP_SIGNAL_ORDER.length; i++) {
+    var key = OPP_SIGNAL_ORDER[i];
+    var dim = signal[key];
+    if (!dim || typeof dim.pct !== 'number') continue;
+    if (!best || dim.pct > best.dim.pct) best = { key: key, dim: dim };
+  }
+  return best;
+}
+
+function renderLeadPreview(detail) {
+  var body = document.getElementById('lp-body');
+  var title = document.getElementById('lp-title');
+  if (!body) return;
+
+  var company = detail.company || detail;
+  var enrichment = detail.enrichment || {};
+  var na = enrichment.narrative_assessment || {};
+  var isAssessed = enrichment.qualification_score !== null && enrichment.qualification_score !== undefined;
+
+  if (title) title.textContent = company.legal_name || 'Preview';
+
+  var registryHtml = '<div class="lp-section lp-registry">'
+    + '<div class="lp-registry-row"><span class="lp-label">County</span><span>' + escHtml(company.county || '--') + '</span></div>'
+    + '<div class="lp-registry-row"><span class="lp-label">CRO Status</span><span>' + escHtml(company.cro_status || '--') + '</span></div>'
+    + '<div class="lp-registry-row"><span class="lp-label">Years operating</span><span>' + (yearsFrom(company.incorporation_date) != null ? yearsFrom(company.incorporation_date) : '--') + '</span></div>'
+    + '</div>';
+
+  if (!isAssessed) {
+    body.innerHTML = registryHtml
+      + '<div class="lp-section">'
+      + '<button type="button" class="lp-assess-cta" id="lp-assess-cta-btn" data-id="' + escHtml(company.id) + '">Assess this lead</button>'
+      + '</div>';
+    var assessBtn = document.getElementById('lp-assess-cta-btn');
+    if (assessBtn) {
+      assessBtn.addEventListener('click', function() {
+        renderLeadPreviewAssessing(company.id);
+      });
+    }
+    return;
+  }
+
+  var contacts = na.contacts || [];
+  var contact = bestContact(contacts);
+  var contactHtml;
+  if (contact) {
+    var overall = contact.confidence && contact.confidence.overall;
+    var tier = tierColor(overall && overall.level);
+    contactHtml = '<div class="lp-section"><div class="lp-section-title">Contact</div>'
+      + '<div class="ct-card" style="--tier-color:' + tier + ';">'
+      + '<div class="ct-header">'
+      + '<div class="ct-avatar">' + escHtml(initialsOf(contact.name || contact.full_name)) + '</div>'
+      + '<div class="ct-id">'
+      + '<div class="ct-name">' + escHtml(contact.name || contact.full_name || 'Unknown') + '</div>'
+      + (contact.role ? '<div class="ct-role">' + escHtml(contact.role) + '</div>' : '')
+      + '</div>'
+      + '</div>'
+      + '<div class="ct-channels">'
+      + renderChannelChip('email', 'Email', contact.email, contact.confidence && contact.confidence.email)
+      + renderChannelChip('phone', 'Phone', contact.phone, contact.confidence && contact.confidence.phone)
+      + renderChannelChip('linkedin', 'LinkedIn', contact.linkedin_url ? 'View profile' : null, contact.confidence && contact.confidence.linkedin, contact.linkedin_url)
+      + '</div>'
+      + '</div></div>';
+  } else {
+    var address = company.registered_address;
+    contactHtml = '<div class="lp-section"><div class="lp-section-title">Contact</div>'
+      + '<div class="lp-no-contact">No publicly listed directors, senior management, email, or phone number could be verified.'
+      + (address ? '<br><strong>Registered office:</strong> ' + escHtml(address) : '')
+      + '</div></div>';
+  }
+
+  var score = enrichment.qualification_score;
+  var topDim = topOpportunityDimension(na.opportunity_signal || enrichment.opportunity_signal);
+  var scoreHtml = '<div class="lp-section">'
+    + '<div class="lp-score-row"><span class="lp-score-num">' + escHtml(String(score)) + '</span><span class="lp-score-max">/100</span></div>'
+    + (topDim ? '<div class="lp-dimension"><span class="lp-label">' + escHtml(OPP_SIGNAL_LABELS[topDim.key]) + ' (' + Math.round(topDim.dim.pct) + '%)</span><p>' + escHtml(topDim.dim.reason || '') + '</p></div>' : '')
+    + '</div>';
+
+  var summary = na.executive_summary || enrichment.executive_summary || '';
+  var angle = na.opening_angle || enrichment.opening_angle || '';
+  var narrativeHtml = '<div class="lp-section">'
+    + (summary ? '<div class="lp-section-title">Why this score</div><p class="lp-summary">' + escHtml(summary) + '</p>' : '')
+    + (angle ? '<div class="lp-section-title">Approach</div><p class="lp-angle">' + escHtml(angle) + '</p>' : '')
+    + '</div>';
+
+  var profileLinkHtml = '<div class="lp-section"><a class="lp-profile-link" href="/lead/' + escHtml(company.id) + '">Open full profile →</a></div>';
+
+  body.innerHTML = registryHtml + contactHtml + scoreHtml + narrativeHtml + profileLinkHtml;
+}
+
+function renderLeadPreviewError(id, message) {
+  var body = document.getElementById('lp-body');
+  if (!body) return;
+  body.innerHTML = '<div class="lp-error">'
+    + '<p>' + escHtml(message) + '</p>'
+    + '<button type="button" class="lp-retry-btn" id="lp-retry-btn">Retry</button>'
+    + '</div>';
+  var retryBtn = document.getElementById('lp-retry-btn');
+  if (retryBtn) {
+    retryBtn.addEventListener('click', function() {
+      var body2 = document.getElementById('lp-body');
+      if (body2) body2.innerHTML = '<div class="lp-loading">Loading…</div>';
+      fetchAndRenderLeadPreview(id);
+    });
+  }
+}
+
+// Placeholder for Task 6 — replaced there with the real assess-and-refresh flow.
+function renderLeadPreviewAssessing(id) {
+  var body = document.getElementById('lp-body');
+  if (body) body.innerHTML = '<div class="lp-loading">Assessing… (not implemented yet)</div>';
 }
 
 document.addEventListener('DOMContentLoaded', function() {
