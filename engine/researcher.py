@@ -410,28 +410,41 @@ def research_company(company: dict) -> dict:
     # Cap to the 4 most specific queries — avoids 12+ sequential Tavily calls
     queries = queries[:4]
 
-    # First, try direct domain patterns from company names (only for simple names)
+    # First, try direct domain patterns from company names (only for simple names).
+    # Tries both the first token alone ("a1" from "A1 Claims") and the first
+    # two tokens joined ("a1claims") — two-word compound domains are the norm
+    # for small Irish firms (a1claims.ie, clearinsurance.ie-style names), and
+    # single-token-only guessing missed them (a1claims.ie went unfound because
+    # the guess landed on the wrong domain "a1.ie" instead).
     def try_direct_domains(name: str) -> Optional[dict]:
         if not name:
             return None
-        # Only try direct domains for very simple names (1-2 words, no spaces in core)
         parts = re.findall(r"[a-z0-9]+", name.lower())
-        if not parts or len(parts) > 2:
+        if not parts:
             return None
-        core = parts[0]
-        # Only try if core is reasonably distinctive (3+ chars)
-        if len(core) < 3:
+        cores = []
+        if len(parts) <= 2 and len(parts[0]) >= 3:
+            cores.append(parts[0])
+        if len(parts) >= 2:
+            joined = "".join(parts[:2])
+            if len(joined) >= 5:
+                cores.append(joined)
+        if not cores:
             return None
-        # Try common domain patterns
-        domains_to_try = [
-            f"https://{core}.ie",
-            f"https://www.{core}.ie",
-        ]
+        domains_to_try = []
+        for core in cores:
+            domains_to_try.append(f"https://{core}.ie")
+            domains_to_try.append(f"https://www.{core}.ie")
         for domain in domains_to_try:
             content = _fetch_text(domain)
             fetched_content[domain] = content
-            if content:
-                score = _score_website_match(domain, name, trading_name, content, company=company)
+            if not content:
+                continue
+            score = _score_website_match(domain, name, trading_name, content, company=company)
+            # Same acceptance floor as the search-result path below — a
+            # direct-domain guess that resolves to an unrelated/parked page
+            # must not be accepted just because it returned some text.
+            if score >= 30:
                 return {"url": domain, "content": content, "score": score, "title": name}
         return None
 
@@ -445,6 +458,15 @@ def research_company(company: dict) -> dict:
                 if result:
                     best_score = result["score"]
                     best_website = result
+
+    # Fall back to the legal name itself — most companies have no
+    # trading_name at all, so the block above never runs for them and this
+    # was previously the only direct-domain attempt possible.
+    if not best_website:
+        result = try_direct_domains(name)
+        if result:
+            best_score = result["score"]
+            best_website = result
 
     # Fire all queries concurrently — Tavily latency (1-3s each) was paid
     # serially per query before, and each round then ran its own fetch wave.
@@ -475,8 +497,13 @@ def research_company(company: dict) -> dict:
     new_urls = [r for r in new_urls if not any(d in r["url"].lower() for d in _SOCIAL_DOMAINS)]
 
     # Hard cap: a flood of low-quality results must not become a flood of
-    # page fetches — each dead URL costs up to FETCH_TIMEOUT seconds.
-    new_urls = new_urls[:MAX_RESULT_FETCHES]
+    # page fetches — each dead URL costs up to FETCH_TIMEOUT seconds. The
+    # direct-domain guesses above already spent part of this budget
+    # (tracked via fetched_content, which they populate on every attempt),
+    # so the search-result share must shrink to match — otherwise the two
+    # direct-domain probe passes push the true total past MAX_RESULT_FETCHES.
+    remaining_budget = max(0, MAX_RESULT_FETCHES - len(fetched_content))
+    new_urls = new_urls[:remaining_budget]
 
     if new_urls:
         with ThreadPoolExecutor(max_workers=FETCH_CONCURRENCY) as pool:
