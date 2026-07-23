@@ -793,14 +793,13 @@ function businessFitDimension(signal) {
   return { key: 'business_fit', dim: dim, pct: pct };
 }
 
-// Same ring-drawing math as lead.htm's renderRing() (frontend/lead.htm:990),
-// re-expressed as an HTML-string builder since this panel renders via
-// innerHTML rather than persistent DOM node updates.
-function renderConfidenceRingHtml(rc) {
-  if (rc == null) return '';
-  var pct = typeof rc === 'number' && rc <= 1 ? Math.round(rc * 100) : Math.round(rc);
-  var level = confidenceLevel(pct);
-  var color = level === 'high' ? 'var(--teal)' : level === 'medium' ? 'var(--amber)' : 'var(--rose)';
+// Same ring-drawing math as lead.htm's renderRing()/renderFitRing()
+// (frontend/lead.htm), re-expressed as an HTML-string builder since this
+// panel renders via innerHTML rather than persistent DOM node updates.
+// The panel additionally shows a Business Fit ring lead.htm doesn't (see
+// renderBizFitRingHtml below) — that dimension stays in lead.htm's
+// existing scorecard bar list instead of being duplicated as a ring there.
+function renderRingHtml(pct, color, label) {
   var circ = 138.2;
   var off = (circ * (1 - pct / 100)).toFixed(1);
   return '<div class="confidence-ring-wrap" style="margin-top:0; flex-shrink:0;">'
@@ -808,8 +807,35 @@ function renderConfidenceRingHtml(rc) {
     + '<circle cx="26" cy="26" r="22" fill="none" stroke="var(--border-panel-light)" stroke-width="5"/>'
     + '<circle cx="26" cy="26" r="22" fill="none" stroke="' + color + '" stroke-width="5" stroke-linecap="round" stroke-dasharray="' + circ + '" stroke-dashoffset="' + off + '" transform="rotate(-90 26 26)"/>'
     + '</svg>'
-    + '<div><div class="confidence-num" style="color:' + color + ';">' + pct + '%</div><div class="confidence-label">Research confidence</div></div>'
+    + '<div><div class="confidence-num" style="color:' + color + ';">' + Math.round(pct) + '%</div><div class="confidence-label">' + escHtml(label) + '</div></div>'
     + '</div>';
+}
+
+// Fixed light blue (var(--blue), the sky-blue already used throughout the
+// app), not level-tiered — research confidence is "how much data do we
+// have," not a good/bad signal, so it doesn't get the teal/amber/rose
+// treatment a fit score does. Matches lead.htm's renderRing().
+function renderConfidenceRingHtml(rc) {
+  if (rc == null) return '';
+  var pct = typeof rc === 'number' && rc <= 1 ? Math.round(rc * 100) : Math.round(rc);
+  return renderRingHtml(pct, 'var(--blue)', 'Research confidence');
+}
+
+// Same shape as the confidence ring, unified with lead.htm's Overall Fit
+// ring — level-tiered like the score badge beside it.
+function renderOverallFitRingHtml(score, level) {
+  if (score == null) return '';
+  var color = level === 'high' ? 'var(--teal)' : level === 'medium' ? 'var(--amber)' : 'var(--rose)';
+  return renderRingHtml(score, color, 'Overall fit');
+}
+
+// Same shape as the confidence ring, level-tiered like every other fit
+// indicator in the app. Panel-only — lead.htm keeps business fit in its
+// existing scorecard bar list rather than duplicating it as a ring.
+function renderBizFitRingHtml(bizFit) {
+  if (!bizFit) return '';
+  var color = bizFit.dim.level === 'high' ? 'var(--teal)' : bizFit.dim.level === 'medium' ? 'var(--amber)' : 'var(--rose)';
+  return renderRingHtml(bizFit.pct, color, 'Business fit');
 }
 
 // Same three-tier color mapping lead.htm's Overall Fit Score box uses
@@ -847,6 +873,9 @@ function renderLeadPreview(detail) {
   if (title) title.textContent = company.legal_name || 'Preview';
 
   var registryHtml = '<div class="lp-section card">'
+    + '<div class="section-title">'
+    + '<div class="section-icon" style="background:var(--bg-panel-light); border:1px solid var(--border-panel-light);"><svg width="14" height="14" fill="none" stroke="var(--text-secondary)" stroke-width="2" viewBox="0 0 24 24"><path d="M3 21h18M5 21V7l7-4 7 4v14M9 9h1m-1 4h1m4-4h1m-1 4h1"/></svg></div>'
+    + '<h2>Registered Details</h2></div>'
     + '<div class="id-facts">'
     + '<div class="id-fact"><span class="id-fact-label">County</span><span class="id-fact-value">' + escHtml(company.county || '--') + '</span></div>'
     + '<div class="id-fact"><span class="id-fact-label">CRO Status</span><span class="id-fact-value mono">' + escHtml(company.cro_status || '--') + '</span></div>'
@@ -914,7 +943,7 @@ function renderLeadPreview(detail) {
     + '</div>'
     + '<span style="display:inline-block; margin-top:5px; font-size:10px; font-weight:700; text-transform:uppercase; letter-spacing:0.06em; padding:2px 6px; border-radius:4px; color:' + fitColors.color + '; background:' + fitColors.bg + ';">' + fitColors.text + '</span>'
     + '</div>'
-    + renderConfidenceRingHtml(rc)
+    + '<div style="display:flex; gap:16px; flex-wrap:wrap;">' + renderConfidenceRingHtml(rc) + renderOverallFitRingHtml(score, confidenceLevel(score)) + renderBizFitRingHtml(bizFit) + '</div>'
     + '</div>'
     + (bizFit ? '<div class="score-row ' + levelClass(bizFit.dim.level) + '" style="margin-top:14px;">'
       + '<div class="score-row-top"><span class="score-row-label">' + escHtml(OPP_SIGNAL_LABELS[bizFit.key]) + '</span><span class="score-row-level">' + Math.round(bizFit.pct) + '%</span></div>'
@@ -925,15 +954,20 @@ function renderLeadPreview(detail) {
 
   var summary = na.executive_summary || enrichment.executive_summary || '';
   var angle = na.opening_angle || enrichment.opening_angle || '';
-  var narrativeHtml = ''
-    + (summary ? '<div class="lp-section card"><div class="section-title"><h2>Why This Score</h2></div><p class="exec-text">' + escHtml(summary) + '</p></div>' : '')
-    + (angle ? '<div class="lp-section card card-highlight"><div class="section-title">'
+  var whyThisScoreHtml = summary
+    ? '<div class="lp-section card"><div class="section-title"><h2>Why This Score</h2></div><p class="exec-text">' + escHtml(summary) + '</p></div>'
+    : '';
+  var approachHtml = angle
+    ? '<div class="lp-section card card-highlight"><div class="section-title">'
       + '<div class="section-icon" style="background:var(--blue-dim);"><svg width="14" height="14" fill="none" stroke="var(--blue)" stroke-width="2" viewBox="0 0 24 24"><path d="M13 2L3 14h7l-1 8 10-12h-7l1-8z"/></svg></div>'
-      + '<h2>Approach</h2></div><div class="angle-box"><p>' + escHtml(angle) + '</p></div></div>' : '');
+      + '<h2>Approach</h2></div><div class="angle-box"><p>' + escHtml(angle) + '</p></div></div>'
+    : '';
 
   var profileLinkHtml = '<div class="lp-section"><a class="btn-solid full-width" style="display:block; text-align:center; text-decoration:none; box-sizing:border-box;" href="/lead/' + escHtml(company.id) + '">Open Full Profile →</a></div>';
 
-  body.innerHTML = registryHtml + contactHtml + scoreHtml + narrativeHtml + profileLinkHtml;
+  // Card order: Contact, Overall Fit Score, Approach, Open Full Profile,
+  // Registered Details, Why This Score.
+  body.innerHTML = contactHtml + scoreHtml + approachHtml + profileLinkHtml + registryHtml + whyThisScoreHtml;
 }
 
 function renderLeadPreviewError(id, message) {
@@ -984,12 +1018,81 @@ function renderLeadPreviewAssessing(id) {
   }, 1000);
 }
 
+// Drag-to-resize from the panel's left edge — width tracks the pointer
+// live (same feel as resizing a browser window), clamped between a
+// minimum that keeps the panel usable and the panel's own 92vw CSS cap.
+function initLeadPreviewResize() {
+  var panel = document.getElementById('lead-preview-panel');
+  var handle = document.getElementById('lp-resize-handle');
+  if (!panel || !handle) return;
+  var MIN_WIDTH = 360;
+
+  function maxWidth() { return window.innerWidth * 0.92; }
+
+  function onMove(e) {
+    var clientX = e.touches ? e.touches[0].clientX : e.clientX;
+    var newWidth = window.innerWidth - clientX;
+    newWidth = Math.max(MIN_WIDTH, Math.min(maxWidth(), newWidth));
+    panel.style.width = newWidth + 'px';
+  }
+  function onUp() {
+    panel.classList.remove('resizing');
+    handle.classList.remove('active');
+    document.body.style.userSelect = '';
+    document.removeEventListener('mousemove', onMove);
+    document.removeEventListener('mouseup', onUp);
+    document.removeEventListener('touchmove', onMove);
+    document.removeEventListener('touchend', onUp);
+  }
+  function onDown(e) {
+    e.preventDefault();
+    panel.classList.add('resizing');
+    handle.classList.add('active');
+    document.body.style.userSelect = 'none';
+    document.addEventListener('mousemove', onMove);
+    document.addEventListener('mouseup', onUp);
+    document.addEventListener('touchmove', onMove, { passive: false });
+    document.addEventListener('touchend', onUp);
+  }
+  handle.addEventListener('mousedown', onDown);
+  handle.addEventListener('touchstart', onDown, { passive: false });
+}
+
+// If an assessment is running (AI activity popup visible) when the
+// preview panel opens, dock the popup beside the panel instead of letting
+// it sit at its default right:20px, where the panel — z-index 201 vs. the
+// popup's 2000 — would leave the popup floating on top of/overlapping the
+// panel's own content rather than beside it.
+function updateAiActivityDock() {
+  var aap = document.getElementById('ai-activity-panel');
+  var panel = document.getElementById('lead-preview-panel');
+  if (!aap || !panel) return;
+  var bothActive = panel.classList.contains('open') && aap.classList.contains('visible');
+  if (bothActive) {
+    var panelWidth = panel.getBoundingClientRect().width;
+    aap.style.right = (panelWidth + 20) + 'px';
+  } else {
+    aap.style.right = '';
+  }
+}
+
+function initLeadPreviewAiActivityDock() {
+  var aap = document.getElementById('ai-activity-panel');
+  var panel = document.getElementById('lead-preview-panel');
+  if (!aap || !panel) return;
+  var observer = new MutationObserver(updateAiActivityDock);
+  observer.observe(aap, { attributes: true, attributeFilter: ['class'] });
+  observer.observe(panel, { attributes: true, attributeFilter: ['class', 'style'] });
+}
+
 document.addEventListener('DOMContentLoaded', function() {
   var closeBtn = document.getElementById('lp-close-btn');
   if (closeBtn) closeBtn.addEventListener('click', closeLeadPreview);
   document.addEventListener('keydown', function(e) {
     if (e.key === 'Escape') closeLeadPreview();
   });
+  initLeadPreviewResize();
+  initLeadPreviewAiActivityDock();
 });
 
 // NOTE: loadLeadDetail() and its dedicated helpers (yearsSince,

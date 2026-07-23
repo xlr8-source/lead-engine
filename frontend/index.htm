@@ -393,7 +393,7 @@
   .stat-label-teal,
   .stat-label-coral,
   .stat-label-amber {
-    color: var(--pristine) !important;
+    color: var(--text-primary) !important;
     font-size: 13px; font-weight: 700; font-family: var(--font-display);
     display: flex; align-items: center; gap: 6px;
   }
@@ -854,6 +854,19 @@
     display: flex; flex-direction: column;
   }
   .lp-panel.open { transform: translateX(0); }
+  .lp-panel.resizing { transition: none; }
+
+  .lp-resize-handle {
+    position: absolute; left: -3px; top: 0; bottom: 0; width: 6px;
+    cursor: ew-resize; z-index: 5; touch-action: none;
+  }
+  .lp-resize-handle::after {
+    content: ''; position: absolute; left: 2px; top: 0; bottom: 0; width: 2px;
+    background: transparent; transition: background 0.15s ease;
+  }
+  .lp-resize-handle:hover::after, .lp-resize-handle.active::after {
+    background: var(--paybrix-red);
+  }
 
   .lp-header {
     display: flex; align-items: center; justify-content: space-between;
@@ -1236,6 +1249,7 @@
 
 <div id="lead-preview-backdrop" class="lp-backdrop" onclick="closeLeadPreview()"></div>
 <div id="lead-preview-panel" class="lp-panel" role="dialog" aria-modal="true" aria-label="Lead preview">
+  <div class="lp-resize-handle" id="lp-resize-handle" title="Drag to resize"></div>
   <div class="lp-header">
     <div class="lp-header-title" id="lp-title">Preview</div>
     <button type="button" class="lp-close" id="lp-close-btn" title="Close" aria-label="Close preview">&times;</button>
