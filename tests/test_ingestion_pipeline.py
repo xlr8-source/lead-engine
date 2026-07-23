@@ -34,7 +34,11 @@ from ingestion.cbi_fetcher import (
     _find_postback_register_target,
 )
 from ingestion.http_retry import get_with_retry
-from ingestion.cbi_parser import _normalise_pdf_record, parse_cbi_register
+from ingestion.cbi_parser import (
+    _build_record_from_intermediary_lines,
+    _column_for_x,
+    parse_cbi_register,
+)
 from ingestion.cro_resolver import resolve_against_cro
 from db import dal
 from db.init_db import init_db
@@ -146,15 +150,17 @@ def test_parse_csv_detects_tab_delimiter(tmp_path):
     assert rows[0]["registered_address"] == "12 Main Street, Dublin, D06 K4E5"
 
 
-def test_normalise_pdf_record_full_shape():
+def test_build_record_from_intermediary_lines_full_shape():
     lines = [
-        "C54321 Emerald Cover Insurance Intermediary 5 March 2018",
+        "Emerald Cover",
         "Limited",
         "t/a Emerald Direct",
         "Unit 4, Galway, H91 AK12",
     ]
 
-    record = _normalise_pdf_record(lines)
+    record = _build_record_from_intermediary_lines(
+        "C54321", "Insurance Intermediary", "5 March 2018", lines,
+    )
 
     assert record is not None
     assert record["cbi_reference"] == "C54321"
@@ -165,6 +171,42 @@ def test_normalise_pdf_record_full_shape():
     assert record["authorisation_type"] == "Insurance Intermediary"
     assert record["authorisation_status"] == "registered"
     assert record["registered_on"] == "2018-03-05"
+
+
+def test_build_record_from_intermediary_lines_no_fos_bleed_into_address():
+    """Regression test for the Clements Insurance case: the CBI PDF's
+    "Passporting Into" column (a list of EU countries, one per line, with
+    "(FOS)" suffixes) must never appear in registered_address or
+    trading_name — those lines belong to a completely different column and
+    should already be excluded before these lines are built (see
+    _extract_columnar_rows / _column_for_x), not merely filtered here."""
+    lines = [
+        "Clements Insurance Services Ltd",
+        "t/a Gallagher",
+        "15 Parkgate Street",
+        "Dublin 8",
+        "D08 W866",
+    ]
+
+    record = _build_record_from_intermediary_lines(
+        "C463891", "Insurance Intermediary", "27 February 2023", lines,
+    )
+
+    assert record["trading_name"] == "Gallagher"
+    assert record["registered_address"] == "15 Parkgate Street, Dublin 8, D08 W866"
+    for banned in ("FOS", "Cyprus", "Czech Republic", "Germany", "Austria", "Belgium"):
+        assert banned not in (record["registered_address"] or "")
+        assert banned not in (record["trading_name"] or "")
+
+
+def test_column_for_x_separates_intermediary_from_passporting_into():
+    # Real x0 values observed on the live CBI register PDF template.
+    assert _column_for_x(44.8) == "ref_no"
+    assert _column_for_x(106.7) == "intermediary"
+    assert _column_for_x(213.0) == "intermediary"  # mid-column word, e.g. "Services"
+    assert _column_for_x(604.4) == "persons_responsible"
+    assert _column_for_x(715.8) == "passporting_into"
+    assert _column_for_x(760.0) == "passporting_into"  # "(FOS)" word, right-aligned
 
 
 # ---------------------------------------------------------------------------

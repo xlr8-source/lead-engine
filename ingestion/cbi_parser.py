@@ -181,11 +181,6 @@ def _parse_xlsx(path: Path) -> list[dict]:
     return rows
 
 
-PDF_RECORD_RE = re.compile(
-    r"^(C\d+)\s+(.+?)\s+((?:Ancillary\s+)?(?:Insurance|Reinsurance)\s+Intermediary)"
-    r"\s+(\d{1,2}\s+[A-Za-z]+\s+\d{4})\s*(.*)$"
-)
-
 LEGAL_SUFFIX_LINES = {
     "limited",
     "ltd",
@@ -195,6 +190,33 @@ LEGAL_SUFFIX_LINES = {
     "unlimited company",
     "public limited company",
 }
+
+# Column x0 (left-edge) start positions for the CBI Insurance Distribution
+# Register PDF template — verified 2026-07 against a live download from
+# registers.centralbank.ie. This register has no cell borders, so
+# pdfplumber's extract_tables() finds nothing and a naive extract_text()
+# flattens every column into single lines purely by y-position: on any row
+# where only the Intermediary column (name/trading-name/address, which
+# wraps across many lines) and the Passporting Into column (an unrelated
+# EU-country checklist, which also spans many lines) both have content,
+# their text gets glued into one bogus line. That's the exact mechanism
+# behind the Clements Insurance case: legal trading name "Gallagher" fused
+# with "Belgium (FOS)" from the Passporting Into column into "t/a Gallagher
+# Belgium (FOS)", and three more Passporting Into entries (Cyprus, Czech
+# Republic, Germany) leaked into what became registered_address — which
+# then read to the LLM as evidence of "a multinational group entity," not
+# an independent Irish intermediary, and also poisoned website-search
+# queries built from that trading name.
+_PDF_COLUMNS = [
+    ("ref_no", 44.8),
+    ("intermediary", 106.7),
+    ("registered_as", 243.2),
+    ("registered_on", 363.0),
+    ("tied_to", 450.9),
+    ("persons_responsible", 604.4),
+    ("passporting_into", 715.8),
+]
+_REF_NO_RE = re.compile(r"^C\d+$")
 
 
 def _parse_cbi_date(value: Optional[str]) -> Optional[str]:
@@ -207,48 +229,44 @@ def _parse_cbi_date(value: Optional[str]) -> Optional[str]:
         return value
 
 
-def _parse_pdf_text_records(pdf) -> list[dict]:
-    """Fallback parser for CBI PDFs that expose text lines but no tables."""
-    records = []
-    current: list[str] = []
-
-    def flush_current() -> None:
-        if not current:
-            return
-        record = _normalise_pdf_record(current)
-        if record:
-            records.append(record)
-
-    for page in pdf.pages:
-        text = page.extract_text() or ""
-        for raw_line in text.splitlines():
-            line = " ".join(raw_line.strip().split())
-            if not line:
-                continue
-            if line.startswith("Run Date:"):
-                continue
-            if line.startswith("Ref No.") or line.startswith("Insurance Distribution Register"):
-                continue
-            if line.startswith("under the European Union"):
-                continue
-
-            if re.match(r"^C\d+\b", line):
-                flush_current()
-                current = [line]
-            elif current:
-                current.append(line)
-
-    flush_current()
-    return records
+def _column_for_x(x0: float) -> str:
+    """Snap a word's x0 to the nearest column start at or to its left."""
+    col = _PDF_COLUMNS[0][0]
+    for name, start in _PDF_COLUMNS:
+        if x0 + 0.5 >= start:
+            col = name
+        else:
+            break
+    return col
 
 
-def _normalise_pdf_record(lines: list[str]) -> Optional[dict]:
-    first_line = lines[0]
-    match = PDF_RECORD_RE.match(first_line)
-    if not match:
+def _extract_columnar_rows(page) -> list[dict]:
+    """One dict per visual text row on the page, keyed by column name —
+    words are bucketed by x-position instead of flattened into one string,
+    so unrelated columns sharing a row's y-position never mix."""
+    words = page.extract_words()
+    rows_by_top: dict[int, list] = {}
+    for w in words:
+        rows_by_top.setdefault(round(w["top"]), []).append(w)
+    rows = []
+    for top in sorted(rows_by_top):
+        row_words = sorted(rows_by_top[top], key=lambda w: w["x0"])
+        cols: dict[str, list[str]] = {}
+        for w in row_words:
+            cols.setdefault(_column_for_x(w["x0"]), []).append(w["text"])
+        rows.append({name: " ".join(tokens) for name, tokens in cols.items()})
+    return rows
+
+
+def _build_record_from_intermediary_lines(
+    cbi_reference: str,
+    registered_as: Optional[str],
+    registered_on: Optional[str],
+    lines: list[str],
+) -> Optional[dict]:
+    if not lines:
         return None
-
-    cbi_reference, legal_name, registered_as, registered_on, first_line_tail = match.groups()
+    legal_name = lines[0]
     remaining = [line for line in lines[1:] if line]
 
     if remaining and remaining[0].strip().lower() in LEGAL_SUFFIX_LINES:
@@ -258,14 +276,7 @@ def _normalise_pdf_record(lines: list[str]) -> Optional[dict]:
     while remaining and remaining[0].lower().startswith("t/a "):
         trading_lines.append(remaining.pop(0)[4:].strip())
 
-    address_lines = []
-    for line in remaining:
-        lowered = line.lower()
-        if "(fos)" in lowered:
-            continue
-        address_lines.append(line)
-
-    address = ", ".join(address_lines) if address_lines else None
+    address = ", ".join(remaining) if remaining else None
     legal_name = _normalise_name(legal_name) or ""
     trading_name = _normalise_name(", ".join(trading_lines)) if trading_lines else None
 
@@ -279,11 +290,49 @@ def _normalise_pdf_record(lines: list[str]) -> Optional[dict]:
         "authorisation_type": registered_as,
         "authorisation_status": "registered",
         "registered_on": _parse_cbi_date(registered_on),
-        "raw_row": {
-            "lines": lines,
-            "first_line_tail": first_line_tail,
-        },
+        "raw_row": {"lines": lines},
     }
+
+
+def _parse_pdf_text_records(pdf) -> list[dict]:
+    """Column-aware fallback for CBI PDFs that expose no extractable table
+    borders. See _PDF_COLUMNS for why this reconstructs records from
+    x-bucketed words rather than pdfplumber's flowed page text."""
+    records: list[dict] = []
+    current_ref: Optional[str] = None
+    current_registered_as: Optional[str] = None
+    current_registered_on: Optional[str] = None
+    current_lines: list[str] = []
+
+    def flush() -> None:
+        if current_ref is None:
+            return
+        record = _build_record_from_intermediary_lines(
+            current_ref, current_registered_as, current_registered_on, current_lines,
+        )
+        if record and record["legal_name"]:
+            records.append(record)
+
+    for page in pdf.pages:
+        for row in _extract_columnar_rows(page):
+            ref_no = (row.get("ref_no") or "").strip()
+            intermediary = (row.get("intermediary") or "").strip()
+            # The column header repeats on every page — its own cells must
+            # never be read as a continuation line of the record that
+            # happens to end at a page boundary.
+            if intermediary == "Intermediary*" or ref_no.lower().startswith("ref"):
+                continue
+            if ref_no and _REF_NO_RE.match(ref_no):
+                flush()
+                current_ref = ref_no
+                current_registered_as = (row.get("registered_as") or "").strip() or None
+                current_registered_on = (row.get("registered_on") or "").strip() or None
+                current_lines = [intermediary] if intermediary else []
+            elif current_ref is not None and intermediary:
+                current_lines.append(intermediary)
+
+    flush()
+    return records
 
 
 def _parse_pdf(path: Path) -> list[dict]:
