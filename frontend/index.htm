@@ -838,6 +838,38 @@
     transition: background 0.15s ease, color 0.15s ease;
   }
   .lead-preview-btn:hover { background: var(--bg-panel-light); color: var(--text-primary); border-color: var(--border); }
+
+  .lp-backdrop {
+    position: fixed; inset: 0; background: rgba(0,0,0,0.5);
+    opacity: 0; pointer-events: none; transition: opacity 0.2s ease; z-index: 200;
+  }
+  .lp-backdrop.open { opacity: 1; pointer-events: auto; }
+
+  .lp-panel {
+    position: fixed; top: 0; right: 0; height: 100vh; width: 420px; max-width: 92vw;
+    background: var(--bg-elevated); border-left: 1px solid var(--border);
+    box-shadow: var(--shadow-panel); transform: translateX(100%);
+    transition: transform 0.25s ease; z-index: 201;
+    display: flex; flex-direction: column;
+  }
+  .lp-panel.open { transform: translateX(0); }
+
+  .lp-header {
+    display: flex; align-items: center; justify-content: space-between;
+    padding: 16px 20px; border-bottom: 1px solid var(--border); flex-shrink: 0;
+  }
+  .lp-header-title { font-size: 14px; font-weight: 600; color: var(--text-primary); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .lp-close {
+    background: none; border: none; color: var(--text-muted); font-size: 22px;
+    line-height: 1; cursor: pointer; padding: 4px 8px; border-radius: 6px; flex-shrink: 0;
+  }
+  .lp-close:hover { background: var(--bg-panel-light); color: var(--text-primary); }
+
+  .lp-body { flex: 1; overflow-y: auto; padding: 20px; }
+
+  @media (max-width: 480px) {
+    .lp-panel { width: 100vw; max-width: 100vw; }
+  }
 </style>
 </head>
 <body>
@@ -1093,6 +1125,15 @@
     <ul class="aap-trace" id="aap-trace"></ul>
     <div class="aap-detail hidden" id="aap-detail"></div>
   </div>
+</div>
+
+<div id="lead-preview-backdrop" class="lp-backdrop" onclick="closeLeadPreview()"></div>
+<div id="lead-preview-panel" class="lp-panel" role="dialog" aria-modal="true" aria-label="Lead preview">
+  <div class="lp-header">
+    <div class="lp-header-title" id="lp-title">Preview</div>
+    <button type="button" class="lp-close" id="lp-close-btn" title="Close" aria-label="Close preview">&times;</button>
+  </div>
+  <div class="lp-body" id="lp-body"></div>
 </div>
 
 <script src="/static/app.js?v=10"></script>

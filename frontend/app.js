@@ -642,6 +642,13 @@ document.addEventListener('click', function(e) {
     requestAnimationFrame(function() { window.scrollTo(0, _preAssessScrollY); });
     return;
   }
+  const previewBtn = e.target.closest('.lead-preview-btn');
+  if (previewBtn) {
+    e.stopPropagation();
+    e.preventDefault();
+    openLeadPreview(previewBtn.dataset.id);
+    return;
+  }
   const row = e.target.closest('.lead-row, .opp-row');
   if (row && !e.target.closest('a,button')) {
     sessionStorage.setItem('leadReturnUrl', currentListPath());
@@ -719,6 +726,47 @@ function bestContact(contacts) {
   var sorted = sortContactsByConfidence(contacts);
   return sorted.length ? sorted[0] : null;
 }
+
+// ── Lead preview panel: open/close mechanics ──
+var _leadPreviewCurrentId = null;
+
+function openLeadPreview(id) {
+  _leadPreviewCurrentId = id;
+  var panel = document.getElementById('lead-preview-panel');
+  var backdrop = document.getElementById('lead-preview-backdrop');
+  var body = document.getElementById('lp-body');
+  var title = document.getElementById('lp-title');
+  if (!panel || !backdrop || !body) return;
+  title.textContent = 'Preview';
+  body.innerHTML = '<div class="lp-loading">Loading…</div>';
+  panel.classList.add('open');
+  backdrop.classList.add('open');
+  fetchAndRenderLeadPreview(id);
+}
+
+function closeLeadPreview() {
+  var panel = document.getElementById('lead-preview-panel');
+  var backdrop = document.getElementById('lead-preview-backdrop');
+  var body = document.getElementById('lp-body');
+  if (panel) panel.classList.remove('open');
+  if (backdrop) backdrop.classList.remove('open');
+  if (body) body.innerHTML = '';
+  _leadPreviewCurrentId = null;
+}
+
+// Placeholder for Task 4 — replaced there with the real fetch+render.
+function fetchAndRenderLeadPreview(id) {
+  var body = document.getElementById('lp-body');
+  if (body) body.innerHTML = '<div class="lp-loading">Loading… (rendering not implemented yet)</div>';
+}
+
+document.addEventListener('DOMContentLoaded', function() {
+  var closeBtn = document.getElementById('lp-close-btn');
+  if (closeBtn) closeBtn.addEventListener('click', closeLeadPreview);
+  document.addEventListener('keydown', function(e) {
+    if (e.key === 'Escape') closeLeadPreview();
+  });
+});
 
 // NOTE: loadLeadDetail() and its dedicated helpers (yearsSince,
 // setDetailAssessmentLoading, signalLevelLabel, signalPct, copyEmail,
