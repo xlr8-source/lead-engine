@@ -570,17 +570,6 @@ details.raw pre{ margin:0 20px 18px; font-size:11px; color:var(--text-muted); ba
             <div class="confidence-label">Research confidence</div>
           </div>
         </div>
-        <div class="confidence-ring-wrap" id="d-fit-ring-wrap" style="display:none;">
-          <svg class="confidence-ring" width="52" height="52" viewBox="0 0 52 52">
-            <circle cx="26" cy="26" r="22" fill="none" stroke="var(--border-panel-light)" stroke-width="5"/>
-            <circle cx="26" cy="26" r="22" fill="none" stroke="var(--teal)" stroke-width="5" stroke-linecap="round"
-              stroke-dasharray="138.2" stroke-dashoffset="0" transform="rotate(-90 26 26)" id="d-fit-ring-fill"/>
-          </svg>
-          <div>
-            <div class="confidence-num" id="d-fit-ring-num"></div>
-            <div class="confidence-label">Overall fit</div>
-          </div>
-        </div>
       </div>
       <div class="id-facts" id="d-facts">
         <div class="id-fact"><span class="id-fact-label">County</span><span class="id-fact-value" id="d-county">--</span></div>
@@ -993,10 +982,9 @@ function levelClass(level) {
   return 'lvl-low';
 }
 
-// ── Render confidence ring — fixed light blue (the same sky-blue used
-// throughout the app, var(--blue)), not level-tiered. Research confidence
-// is "how much data do we have," not a good/bad signal, so it doesn't get
-// the teal/amber/rose treatment the way a fit score does. ──
+// ── Render confidence ring — level-tiered like every other score/gauge/
+// ring in the app (>=70 teal, 40-69 blue, <40 the dim rose). No metric
+// gets a special fixed color. ──
 function renderRing(pct) {
   var wrap = document.getElementById('d-confidence-wrap');
   var fill = document.getElementById('d-ring-fill');
@@ -1004,26 +992,11 @@ function renderRing(pct) {
   if (!wrap || !fill || !num) return;
   var circ = 138.2;
   var off = circ * (1 - pct / 100);
-  fill.setAttribute('stroke-dashoffset', off.toFixed(1));
-  num.textContent = pct + '%';
-  wrap.style.display = 'flex';
-}
-
-// ── Render Overall Fit ring — same shape as the confidence ring, unified
-// with the preview panel's Overall Fit ring, level-tiered like the
-// Overall Fit Score badge beside it. Business Fit itself stays in its
-// existing scorecard bar list below, not duplicated as a ring here. ──
-function renderFitRing(pct, level) {
-  var wrap = document.getElementById('d-fit-ring-wrap');
-  var fill = document.getElementById('d-fit-ring-fill');
-  var num = document.getElementById('d-fit-ring-num');
-  if (!wrap || !fill || !num) return;
-  var circ = 138.2;
-  var off = circ * (1 - pct / 100);
-  var color = level === 'high' ? 'var(--teal)' : level === 'medium' ? 'var(--amber)' : 'var(--rose)';
+  var level = confidenceLevel(pct);
+  var color = level === 'high' ? 'var(--teal)' : level === 'medium' ? 'var(--blue)' : 'var(--rose)';
   fill.setAttribute('stroke-dashoffset', off.toFixed(1));
   fill.setAttribute('stroke', color);
-  num.textContent = Math.round(pct) + '%';
+  num.textContent = pct + '%';
   num.style.color = color;
   wrap.style.display = 'flex';
 }
@@ -1527,23 +1500,16 @@ async function loadLead(id) {
     var fitLabel = document.getElementById('d-fit-score-label');
     if (fitWrap && fitNum && fitLabel) {
       fitNum.textContent = qs;
-      var fitColor, fitText;
-      if (qs >= 70) { fitColor = 'var(--teal)'; fitText = 'Strong'; }
-      else if (qs >= 40) { fitColor = 'var(--amber)'; fitText = 'Moderate'; }
-      else { fitColor = 'var(--rose)'; fitText = 'Low'; }
+      var fitColor, fitBg, fitText;
+      if (qs >= 70) { fitColor = 'var(--teal)'; fitBg = 'rgba(16,185,129,0.15)'; fitText = 'Strong'; }
+      else if (qs >= 40) { fitColor = 'var(--blue)'; fitBg = 'rgba(56,189,248,0.15)'; fitText = 'Moderate'; }
+      else { fitColor = 'var(--rose)'; fitBg = 'rgba(251,113,133,0.15)'; fitText = 'Low'; }
       fitNum.style.color = fitColor;
       fitLabel.textContent = fitText;
       fitLabel.style.color = fitColor;
-      fitLabel.style.background = fitColor.replace(')', ', 0.15)').replace('var(', 'rgba(').replace('var(--teal)', 'rgba(20,200,160,0.15)').replace('var(--amber)', 'rgba(56,189,248,0.15)').replace('var(--rose)', 'rgba(244,63,94,0.15)');
+      fitLabel.style.background = fitBg;
       fitWrap.style.display = 'block';
     }
-  }
-
-  // Overall Fit ring — same shape as the confidence ring, unified with the
-  // preview panel's ring pair, sourced from the same qualification_score
-  // the badge above shows.
-  if (qs != null) {
-    renderFitRing(qs, confidenceLevel(qs));
   }
 
   // Scorecard

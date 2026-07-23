@@ -657,6 +657,16 @@ function confidenceLevel(val) {
   return 'low';
 }
 
+// The one canonical color mapping for every score/gauge/ring in the app —
+// >=70 teal, 40-69 blue, <40 the dim rose (never the vivid PayBrix brand
+// red). No metric gets its own special-cased color; call this (or
+// levelClass, its CSS-class equivalent) wherever a percentage needs a
+// color instead of writing a fresh ternary.
+function tierColorForPct(pct) {
+  var level = confidenceLevel(pct);
+  return level === 'high' ? 'var(--teal)' : level === 'medium' ? 'var(--blue)' : 'var(--rose)';
+}
+
 // ── Shared contact-rendering helpers (also used by lead.htm) ──
 var CHANNEL_ICONS = {
   email: '<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 4h16v16H4z" opacity="0"/><path stroke-linecap="round" stroke-linejoin="round" d="M3 6l9 7 9-7M4 5h16v14H4z"/></svg>',
@@ -793,12 +803,9 @@ function businessFitDimension(signal) {
   return { key: 'business_fit', dim: dim, pct: pct };
 }
 
-// Same ring-drawing math as lead.htm's renderRing()/renderFitRing()
-// (frontend/lead.htm), re-expressed as an HTML-string builder since this
-// panel renders via innerHTML rather than persistent DOM node updates.
-// The panel additionally shows a Business Fit ring lead.htm doesn't (see
-// renderBizFitRingHtml below) — that dimension stays in lead.htm's
-// existing scorecard bar list instead of being duplicated as a ring there.
+// Same ring-drawing math as lead.htm's renderRing(), re-expressed as an
+// HTML-string builder since this panel renders via innerHTML rather than
+// persistent DOM node updates.
 function renderRingHtml(pct, color, label) {
   var circ = 138.2;
   var off = (circ * (1 - pct / 100)).toFixed(1);
@@ -811,31 +818,14 @@ function renderRingHtml(pct, color, label) {
     + '</div>';
 }
 
-// Fixed light blue (var(--blue), the sky-blue already used throughout the
-// app), not level-tiered — research confidence is "how much data do we
-// have," not a good/bad signal, so it doesn't get the teal/amber/rose
-// treatment a fit score does. Matches lead.htm's renderRing().
+// Level-tiered like every other score/gauge/ring in the app — no metric
+// gets a special fixed color; research confidence is >=70 teal, 40-69
+// blue, <40 rose exactly like a fit score. Matches lead.htm's renderRing().
 function renderConfidenceRingHtml(rc) {
   if (rc == null) return '';
   var pct = typeof rc === 'number' && rc <= 1 ? Math.round(rc * 100) : Math.round(rc);
-  return renderRingHtml(pct, 'var(--blue)', 'Research confidence');
-}
-
-// Same shape as the confidence ring, unified with lead.htm's Overall Fit
-// ring — level-tiered like the score badge beside it.
-function renderOverallFitRingHtml(score, level) {
-  if (score == null) return '';
-  var color = level === 'high' ? 'var(--teal)' : level === 'medium' ? 'var(--amber)' : 'var(--rose)';
-  return renderRingHtml(score, color, 'Overall fit');
-}
-
-// Same shape as the confidence ring, level-tiered like every other fit
-// indicator in the app. Panel-only — lead.htm keeps business fit in its
-// existing scorecard bar list rather than duplicating it as a ring.
-function renderBizFitRingHtml(bizFit) {
-  if (!bizFit) return '';
-  var color = bizFit.dim.level === 'high' ? 'var(--teal)' : bizFit.dim.level === 'medium' ? 'var(--amber)' : 'var(--rose)';
-  return renderRingHtml(bizFit.pct, color, 'Business fit');
+  var color = tierColorForPct(pct);
+  return renderRingHtml(pct, color, 'Research confidence');
 }
 
 // Same three-tier color mapping lead.htm's Overall Fit Score box uses
@@ -844,9 +834,9 @@ function renderBizFitRingHtml(bizFit) {
 // two calls; this produces the identical visual result (color + tinted
 // background per tier) without carrying that bug into shared code.
 function fitLevelColors(score) {
-  if (score >= 70) return { color: 'var(--teal)', bg: 'rgba(20,200,160,0.15)', text: 'Strong' };
-  if (score >= 40) return { color: 'var(--amber)', bg: 'rgba(56,189,248,0.15)', text: 'Moderate' };
-  return { color: 'var(--rose)', bg: 'rgba(244,63,94,0.15)', text: 'Low' };
+  if (score >= 70) return { color: 'var(--teal)', bg: 'rgba(16,185,129,0.15)', text: 'Strong' };
+  if (score >= 40) return { color: 'var(--blue)', bg: 'rgba(56,189,248,0.15)', text: 'Moderate' };
+  return { color: 'var(--rose)', bg: 'rgba(251,113,133,0.15)', text: 'Low' };
 }
 
 // Duplicate of lead.htm's levelClass() (frontend/lead.htm:981) - same
@@ -943,7 +933,7 @@ function renderLeadPreview(detail) {
     + '</div>'
     + '<span style="display:inline-block; margin-top:5px; font-size:10px; font-weight:700; text-transform:uppercase; letter-spacing:0.06em; padding:2px 6px; border-radius:4px; color:' + fitColors.color + '; background:' + fitColors.bg + ';">' + fitColors.text + '</span>'
     + '</div>'
-    + '<div style="display:flex; gap:16px; flex-wrap:wrap;">' + renderConfidenceRingHtml(rc) + renderOverallFitRingHtml(score, confidenceLevel(score)) + renderBizFitRingHtml(bizFit) + '</div>'
+    + renderConfidenceRingHtml(rc)
     + '</div>'
     + (bizFit ? '<div class="score-row ' + levelClass(bizFit.dim.level) + '" style="margin-top:14px;">'
       + '<div class="score-row-top"><span class="score-row-label">' + escHtml(OPP_SIGNAL_LABELS[bizFit.key]) + '</span><span class="score-row-level">' + Math.round(bizFit.pct) + '%</span></div>'

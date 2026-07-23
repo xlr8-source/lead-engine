@@ -744,9 +744,9 @@
   /* Conic-gradient ring — no SVG, no viewBox, pure CSS, always editable */
   .fit-ring{ width:24px; height:24px; border-radius:50%; position:relative; display:inline-flex; align-items:center; justify-content:center; flex-shrink:0; }
   .fit-ring::before{ content:''; position:absolute; inset:2.5px; border-radius:50%; background:var(--bg-elevated); }
-  .fit-ring.high{ background:conic-gradient(var(--conic-high-color) 0% calc(var(--pct)*1%), rgba(255,255,255,0.06) calc(var(--pct)*1%) 100%); }
+  .fit-ring.high{ background:conic-gradient(var(--teal) 0% calc(var(--pct)*1%), rgba(255,255,255,0.06) calc(var(--pct)*1%) 100%); }
   .fit-ring.medium{ background:conic-gradient(var(--blue) 0% calc(var(--pct)*1%), rgba(255,255,255,0.06) calc(var(--pct)*1%) 100%); }
-  .fit-ring.low{ background:conic-gradient(#f43f5e 0% calc(var(--pct)*1%), rgba(255,255,255,0.06) calc(var(--pct)*1%) 100%); }
+  .fit-ring.low{ background:conic-gradient(var(--rose) 0% calc(var(--pct)*1%), rgba(255,255,255,0.06) calc(var(--pct)*1%) 100%); }
   .fit-ring-num{ position:relative; z-index:1; font-weight:800; font-size:9px; line-height:1; color:var(--text-primary); text-shadow:0 1px 3px rgba(0,0,0,0.4); }
   .fit-ring:hover{ transform:scale(1.15); filter:brightness(1.12); }
   /* Remove if any old SVG rings somehow remain */
