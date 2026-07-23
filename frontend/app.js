@@ -900,10 +900,34 @@ function renderLeadPreviewError(id, message) {
   }
 }
 
-// Placeholder for Task 6 — replaced there with the real assess-and-refresh flow.
 function renderLeadPreviewAssessing(id) {
   var body = document.getElementById('lp-body');
-  if (body) body.innerHTML = '<div class="lp-loading">Assessing… (not implemented yet)</div>';
+  if (body) body.innerHTML = '<div class="lp-loading">Assessing…</div>';
+  enrichSingle(id);
+  var pollCount = 0;
+  var pollInterval = setInterval(function() {
+    if (_leadPreviewCurrentId !== id) { clearInterval(pollInterval); return; }
+    pollCount++;
+    if (enrichmentErrors[id]) {
+      clearInterval(pollInterval);
+      renderLeadPreviewError(id, enrichmentErrors[id]);
+      return;
+    }
+    var row = allLeads.find(function(l) { return l.id === id; });
+    if (row && row.qualification_score != null) {
+      clearInterval(pollInterval);
+      fetchAndRenderLeadPreview(id);
+      return;
+    }
+    // ~3 minutes at 1s: this session's own 2026-07-21 validation run
+    // measured real LLM assessment calls at 170-220s, so 180s is a floor,
+    // not a guess — below it, this would time out mid-assessment on a
+    // normal run.
+    if (pollCount > 180) {
+      clearInterval(pollInterval);
+      renderLeadPreviewError(id, 'Assessment is taking longer than expected. Close and reopen the preview to check again.');
+    }
+  }, 1000);
 }
 
 document.addEventListener('DOMContentLoaded', function() {
