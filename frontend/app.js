@@ -153,6 +153,9 @@ function showActivityDetail(step) {
 }
 
 document.addEventListener('DOMContentLoaded', function() {
+  // lead.htm wires its own identical AAP header/close handlers - only run
+  // this on index.htm (the leads list), otherwise both fire and cancel out.
+  if (!document.getElementById('leads-tbody')) return;
   var header = document.getElementById('aap-header');
   var closeBtn = document.getElementById('aap-close');
   var panel = document.getElementById('ai-activity-panel');
@@ -797,8 +800,11 @@ function topOpportunityDimension(signal) {
   for (var i = 0; i < OPP_SIGNAL_ORDER.length; i++) {
     var key = OPP_SIGNAL_ORDER[i];
     var dim = signal[key];
-    if (!dim || typeof dim.pct !== 'number') continue;
-    if (!best || dim.pct > best.dim.pct) best = { key: key, dim: dim };
+    if (!dim) continue;
+    // Same level->pct fallback as lead.htm's renderScorecard, so the two
+    // surfaces never disagree about a dimension that lacks a numeric pct.
+    var pct = dim.pct != null ? dim.pct : (dim.level === 'high' ? 90 : dim.level === 'medium' ? 58 : 18);
+    if (!best || pct > best.pct) best = { key: key, dim: dim, pct: pct };
   }
   return best;
 }
@@ -868,7 +874,7 @@ function renderLeadPreview(detail) {
   var topDim = topOpportunityDimension(na.opportunity_signal || enrichment.opportunity_signal);
   var scoreHtml = '<div class="lp-section">'
     + '<div class="lp-score-row"><span class="lp-score-num">' + escHtml(String(score)) + '</span><span class="lp-score-max">/100</span></div>'
-    + (topDim ? '<div class="lp-dimension"><span class="lp-label">' + escHtml(OPP_SIGNAL_LABELS[topDim.key]) + ' (' + Math.round(topDim.dim.pct) + '%)</span><p>' + escHtml(topDim.dim.reason || '') + '</p></div>' : '')
+    + (topDim ? '<div class="lp-dimension"><span class="lp-label">' + escHtml(OPP_SIGNAL_LABELS[topDim.key]) + ' (' + Math.round(topDim.pct) + '%)</span><p>' + escHtml(topDim.dim.reason || '') + '</p></div>' : '')
     + '</div>';
 
   var summary = na.executive_summary || enrichment.executive_summary || '';
@@ -903,6 +909,7 @@ function renderLeadPreviewError(id, message) {
 function renderLeadPreviewAssessing(id) {
   var body = document.getElementById('lp-body');
   if (body) body.innerHTML = '<div class="lp-loading">Assessing…</div>';
+  delete enrichmentErrors[id];
   enrichSingle(id);
   var pollCount = 0;
   var pollInterval = setInterval(function() {
