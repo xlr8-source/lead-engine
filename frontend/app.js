@@ -617,6 +617,7 @@ function renderLeads(leads) {
     + '<td class="col-md"><span class="lead-county">' + escHtml(lead.county || '--') + '</span></td>'
     + '<td class="col-lg"><span class="lead-cro-status">' + croDot + '<span>' + escHtml(croDisplay) + '</span></span></td>'
     + '<td class="col-fit">' + fitCircleHtml + '</td>'
+    + '<td class="col-preview"><button type="button" class="lead-preview-btn" data-id="' + lead.id + '" title="Quick preview" aria-label="Quick preview"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M1 12s4-7 11-7 11 7 11 7-4 7-11 7-11-7-11-7z"/><circle cx="12" cy="12" r="3"/></svg></button></td>'
     + '<td class="col-md">' + sizeEl + '</td>'
     + '<td class="col-lg" style="text-align:center;">' + emailBadge + '</td>'
     + '<td><svg class="lead-arrow" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"/></svg></td>';
