@@ -54,13 +54,45 @@ def _search_tavily(query: str, max_results: int = 10) -> list[dict]:
         return []
 
 
-def _fetch_text(url: str, max_chars: int = 8000) -> Optional[str]:
+# Markers for a bot/WAF challenge page (Cloudflare "Just a moment...",
+# generic "Attention Required" interstitials, etc.) as opposed to a genuine
+# 403/dead-domain — deliberately narrow and text/header-based only. This is
+# used purely to report an honest "found but couldn't verify" note instead
+# of a false "no website" — never to attempt to get past the challenge
+# itself, which we don't do.
+_BOT_CHALLENGE_MARKERS = (
+    "just a moment", "checking your browser", "cf-chl", "attention required",
+    "enable javascript and cookies", "verify you are human", "captcha",
+)
+
+
+def _is_bot_challenge(resp) -> bool:
+    if resp.status_code not in (403, 503):
+        return False
+    server = (resp.headers.get("server") or "").lower()
+    body_sample = (resp.text or "")[:2000].lower()
+    if "cloudflare" in server and resp.status_code in (403, 503):
+        return True
+    return any(marker in body_sample for marker in _BOT_CHALLENGE_MARKERS)
+
+
+def _fetch_text(url: str, max_chars: int = 8000, blocked: Optional[list] = None) -> Optional[str]:
     """Fetch a page and extract readable text using a real HTML parser
     (BeautifulSoup) instead of hand-rolled tag-stripping regexes — handles
-    malformed markup, nested tags, and HTML entities correctly."""
+    malformed markup, nested tags, and HTML entities correctly.
+
+    `blocked`, if given, collects URLs that returned a bot/WAF challenge
+    response rather than genuinely having no content — this lets the caller
+    report "found but couldn't verify" instead of silently equating a block
+    with "doesn't exist" (the Clements Insurance / clementsins.com case:
+    real site, Cloudflare-protected, our fetch gets a 403 challenge page —
+    we deliberately do not try to get past that)."""
     try:
         with httpx.Client(timeout=FETCH_TIMEOUT, follow_redirects=True) as client:
             resp = client.get(url, headers={"User-Agent": USER_AGENT})
+            if blocked is not None and _is_bot_challenge(resp):
+                blocked.append(url)
+                return None
             resp.raise_for_status()
             soup = BeautifulSoup(resp.text, "html.parser")
             for tag in soup(["script", "style", "noscript", "svg", "head"]):
@@ -406,6 +438,11 @@ def research_company(company: dict) -> dict:
     social_links: dict[str, str] = {}
     best_score = 0
     best_website = None
+    # URLs that returned a bot/WAF challenge page rather than genuinely
+    # having no content — reported separately so "no website" and "found a
+    # website but couldn't verify it" are never conflated (see
+    # _is_bot_challenge).
+    blocked_urls: list[str] = []
 
     # Cap to the 4 most specific queries — avoids 12+ sequential Tavily calls
     queries = queries[:4]
@@ -480,7 +517,7 @@ def research_company(company: dict) -> dict:
 
     if new_urls:
         with ThreadPoolExecutor(max_workers=FETCH_CONCURRENCY) as pool:
-            future_to_result = {pool.submit(_fetch_text, r["url"]): r for r in new_urls}
+            future_to_result = {pool.submit(_fetch_text, r["url"], 8000, blocked_urls): r for r in new_urls}
             for future in as_completed(future_to_result):
                 r = future_to_result[future]
                 url = r["url"]
@@ -500,6 +537,17 @@ def research_company(company: dict) -> dict:
                 if score > best_score and score >= 30:  # Minimum threshold of 30
                     best_score = score
                     best_website = {"url": url, "content": content, "score": score, "title": r["title"]}
+
+    # Only report a blocked URL as "this firm's site, unverified" when its
+    # domain plausibly matches the firm's name — a Cloudflare challenge on
+    # some unrelated result that happened to surface in search must not be
+    # attributed to this company. No content is available to check, so this
+    # relies on domain-vs-name similarity alone (same fuzzy match used
+    # elsewhere, just without the content half of the score).
+    blocked_candidates = [
+        url for url in dict.fromkeys(blocked_urls)
+        if _score_website_match(url, name, trading_name, content=None, company=company) >= 40
+    ]
 
     # Use the best scoring website if found
     if best_website:
@@ -523,6 +571,7 @@ def research_company(company: dict) -> dict:
             "search_results": search_results_list[:5],
             "linkedin_results": linkedin_results,
             "social_links": social_links,
+            "blocked_candidates": blocked_candidates,
         }
 
     # No candidate cleared the identity threshold: the honest answer is "no
@@ -539,11 +588,18 @@ def research_company(company: dict) -> dict:
         f"[researcher] Research for '{name}' took {time.perf_counter() - _t_start:.1f}s "
         f"({len(fetched_content)} pages fetched, no verified site)"
     )
+    if blocked_candidates:
+        print(
+            f"[researcher] {len(blocked_candidates)} candidate(s) for '{name}' blocked "
+            f"automated access (bot/WAF challenge), reporting as unverified rather than absent: "
+            f"{blocked_candidates}"
+        )
     return {
         "website_text": None,
         "search_results": search_results_list[:5],
         "linkedin_results": linkedin_results,
         "social_links": social_links,
+        "blocked_candidates": blocked_candidates,
     }
 
 

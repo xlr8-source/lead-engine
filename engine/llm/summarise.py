@@ -72,6 +72,7 @@ def build_context(company: dict, research: dict) -> str:
     # Web research
     web_text = research.get("website_text", "")
     search_results = research.get("search_results", [])
+    blocked_candidates = research.get("blocked_candidates") or []
 
     if web_text:
         # Strip the markdown link line from the first line (used as domain marker)
@@ -106,7 +107,17 @@ def build_context(company: dict, research: dict) -> str:
         for snippet in search_results[:6]:
             lines.append(f"- {snippet}")
 
-    if not web_text and not search_results:
+    if not web_text and blocked_candidates:
+        lines += [
+            "",
+            "=== WEB RESEARCH ===",
+            f"A candidate website ({blocked_candidates[0]}) appears to belong to this firm, but our "
+            "automated research process was blocked from reading it (bot-protection challenge) — its "
+            "content is unknown, not absent. Do NOT say this firm has 'no website' or 'no digital "
+            "presence' — say the website could not be verified/accessed instead. Assessment must still "
+            "rely primarily on CRO/CBI records for this reason.",
+        ]
+    elif not web_text and not search_results:
         lines += [
             "",
             "=== WEB RESEARCH ===",

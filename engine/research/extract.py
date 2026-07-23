@@ -58,7 +58,22 @@ def extract_digital_presence(research: dict) -> dict:
                 result["quality_notes"] = "Website successfully crawled"
         result["pages_crawled"] = 1 + website_text.count("--- Additional page:")
     else:
-        result["quality_notes"] = "No verified official website identified. The research process searched for an official domain but found none confidently attributable to this firm."
+        blocked = research.get("blocked_candidates") or []
+        if blocked:
+            # Found a plausible domain but our automated fetch was blocked
+            # (Cloudflare/WAF bot-challenge) rather than the domain not
+            # existing or not matching — an honestly different conclusion
+            # from "no website found," and this firm's own data shouldn't
+            # claim it has no digital presence when it might just be
+            # unreachable to us. We don't attempt to get past such
+            # challenges.
+            result["quality_notes"] = (
+                f"A candidate website ({blocked[0]}) was found but could not be verified — "
+                "it blocks automated access (bot-protection challenge). Treat as unconfirmed, "
+                "not confirmed absent."
+            )
+        else:
+            result["quality_notes"] = "No verified official website identified. The research process searched for an official domain but found none confidently attributable to this firm."
     return result
 
 

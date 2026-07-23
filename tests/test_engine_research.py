@@ -162,7 +162,7 @@ def test_research_company_selects_matching_site(monkeypatch):
     monkeypatch.setattr(researcher, "_search_tavily", fake_search)
     monkeypatch.setattr(researcher, "_fetch_site_links", lambda u: [], raising=False)
 
-    def fake_fetch(u, max_chars=8000):
+    def fake_fetch(u, max_chars=8000, blocked=None):
         return BROKER_TEXT if u == url else None
 
     monkeypatch.setattr(researcher, "_fetch_text", fake_fetch)
@@ -186,7 +186,7 @@ def test_research_company_returns_no_website_when_nothing_relevant_found(monkeyp
     fake_search = _mock_search([{"title": "Skerries Windmill Tours", "url": url, "snippet": ""}])
     monkeypatch.setattr(researcher, "_search_tavily", fake_search)
 
-    def fake_fetch(u, max_chars=8000):
+    def fake_fetch(u, max_chars=8000, blocked=None):
         return TOURISM_TEXT if u == url else None
 
     monkeypatch.setattr(researcher, "_fetch_text", fake_fetch)
@@ -244,7 +244,7 @@ def test_try_contact_pages_returns_all_people_bearing_pages(monkeypatch):
     base = "https://www.pinnacle.ie/"
     monkeypatch.setattr(researcher, "_fetch_site_links", lambda u: [], raising=False)
 
-    def fake_fetch(u, max_chars=8000):
+    def fake_fetch(u, max_chars=8000, blocked=None):
         clean = u.rstrip("/")
         if clean.endswith("/our-team"):
             return TEAM_TEXT
@@ -269,7 +269,7 @@ def test_try_contact_pages_probes_nav_discovered_links(monkeypatch):
     people_url = "https://www.mylife.ie/who-we-are"
     monkeypatch.setattr(researcher, "_fetch_site_links", lambda u: [people_url], raising=False)
 
-    def fake_fetch(u, max_chars=8000):
+    def fake_fetch(u, max_chars=8000, blocked=None):
         return TEAM_TEXT if u == people_url else None
 
     monkeypatch.setattr(researcher, "_fetch_text", fake_fetch)
@@ -288,7 +288,7 @@ def test_research_company_aggregates_team_page_contacts(monkeypatch):
     monkeypatch.setattr(researcher, "_search_tavily", fake_search)
     monkeypatch.setattr(researcher, "_fetch_site_links", lambda u: [], raising=False)
 
-    def fake_fetch(u, max_chars=8000):
+    def fake_fetch(u, max_chars=8000, blocked=None):
         clean = u.rstrip("/")
         if clean == main_url.rstrip("/"):
             return PINNACLE_HOME
@@ -343,7 +343,7 @@ def test_research_company_collects_social_links(monkeypatch):
     monkeypatch.setattr(researcher, "_search_tavily", fake_search)
     monkeypatch.setattr(researcher, "_fetch_site_links", lambda u: [], raising=False)
 
-    def fake_fetch(u, max_chars=8000):
+    def fake_fetch(u, max_chars=8000, blocked=None):
         return PINNACLE_HOME if u == main_url else None
 
     monkeypatch.setattr(researcher, "_fetch_text", fake_fetch)
@@ -402,7 +402,7 @@ def test_research_company_caps_fetch_volume(monkeypatch):
 
     fetched_urls = []
 
-    def fake_fetch(u, max_chars=8000):
+    def fake_fetch(u, max_chars=8000, blocked=None):
         fetched_urls.append(u)
         return None
 
@@ -674,3 +674,99 @@ def test_reconcile_digital_presence_catches_no_insurance_website_phrasing():
     assert fired is True
     assert corrected["has_website"] is False
     assert corrected["domain"] is None
+
+
+# ---------------------------------------------------------------------------
+# Bot/WAF challenge detection — "found but blocked" must never collapse into
+# "no website" (the Clements Insurance / clementsins.com case: real site,
+# Cloudflare challenge page, our fetch gets a 403 we must not misreport as
+# the domain not existing).
+# ---------------------------------------------------------------------------
+
+def _fake_response(status_code, text="", headers=None):
+    class _Resp:
+        pass
+    r = _Resp()
+    r.status_code = status_code
+    r.text = text
+    r.headers = headers or {}
+    return r
+
+
+def test_is_bot_challenge_detects_cloudflare_403():
+    resp = _fake_response(
+        403,
+        text="<title>Just a moment...</title>",
+        headers={"server": "cloudflare"},
+    )
+    assert researcher._is_bot_challenge(resp) is True
+
+
+def test_is_bot_challenge_detects_generic_challenge_marker_without_cloudflare_header():
+    resp = _fake_response(503, text="Please verify you are human to continue.")
+    assert researcher._is_bot_challenge(resp) is True
+
+
+def test_is_bot_challenge_false_for_genuine_404():
+    resp = _fake_response(404, text="Not Found")
+    assert researcher._is_bot_challenge(resp) is False
+
+
+def test_is_bot_challenge_false_for_normal_200():
+    resp = _fake_response(200, text="<html>Welcome to our site</html>")
+    assert researcher._is_bot_challenge(resp) is False
+
+
+def test_research_company_reports_blocked_candidate_not_absent(monkeypatch):
+    """A domain that plausibly matches the firm's name but returns a
+    bot-challenge response must surface as blocked_candidates, with
+    website_text still None — never silently equated with 'no website'."""
+    url = "https://www.clementsins.com/"
+    fake_search = _mock_search([{"title": "Clements Insurance", "url": url, "snippet": ""}])
+    monkeypatch.setattr(researcher, "_search_tavily", fake_search)
+    monkeypatch.setattr(researcher, "_fetch_site_links", lambda u: [], raising=False)
+
+    def fake_fetch(u, max_chars=8000, blocked=None):
+        if u == url and blocked is not None:
+            blocked.append(u)
+        return None
+
+    monkeypatch.setattr(researcher, "_fetch_text", fake_fetch)
+
+    research = researcher.research_company(_company("Clements Insurance Services Ltd"))
+
+    assert research["website_text"] is None
+    assert url in research["blocked_candidates"]
+
+
+def test_research_company_does_not_attribute_unrelated_blocked_domain(monkeypatch):
+    """A blocked URL whose domain doesn't plausibly match the firm's name
+    must not be reported as this firm's blocked candidate."""
+    url = "https://www.totally-unrelated-cafe.ie/"
+    fake_search = _mock_search([{"title": "Unrelated", "url": url, "snippet": ""}])
+    monkeypatch.setattr(researcher, "_search_tavily", fake_search)
+    monkeypatch.setattr(researcher, "_fetch_site_links", lambda u: [], raising=False)
+
+    def fake_fetch(u, max_chars=8000, blocked=None):
+        if u == url and blocked is not None:
+            blocked.append(u)
+        return None
+
+    monkeypatch.setattr(researcher, "_fetch_text", fake_fetch)
+
+    research = researcher.research_company(_company("Clements Insurance Services Ltd"))
+
+    assert research["blocked_candidates"] == []
+
+
+def test_extract_digital_presence_reports_blocked_as_unverified_not_absent():
+    research = {
+        "website_text": None,
+        "blocked_candidates": ["https://www.clementsins.com/"],
+    }
+    result = extract_digital_presence(research)
+
+    assert result["has_website"] is False
+    assert "clementsins.com" in result["quality_notes"]
+    assert "no website" not in result["quality_notes"].lower()
+    assert "no digital presence" not in result["quality_notes"].lower()
