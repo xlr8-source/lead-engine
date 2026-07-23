@@ -228,7 +228,6 @@ function connectRunEventsForRow(runId, companyId) {
         if (idx !== -1) {
           allLeads[idx].qualification_score = enr.qualification_score != null ? enr.qualification_score : null;
           allLeads[idx].recommended_angle = enr.recommended_angle || allLeads[idx].recommended_angle;
-          allLeads[idx].employee_band = enr.employee_band || allLeads[idx].employee_band;
         }
         applyFilters();
         loadStats();
@@ -366,14 +365,13 @@ async function renderTopOpportunities() {
       var score = o.qualification_score || 0;
       var lvl = confidenceLevel(score);
       var ring = score > 0 ? '<span class="fit-ring ' + lvl + '" title="' + score + '%" style="--pct:' + score + ';"><span class="fit-ring-num">' + score + '</span></span>' : '<span class="lead-badge-muted">--</span>';
-      var sizeEl = o.employee_band ? '<span class="lead-badge-assessed">' + escHtml(o.employee_band) + '</span>' : '<span class="lead-badge-muted">--</span>';
       var nameHtml = '<a href="/lead/' + o.id + '" class="lead-firm-link"><div><div class="lead-firm-name">' + escHtml(o.legal_name || '--') + '</div>' + (o.trading_name ? '<div class="lead-trading-name">' + escHtml(o.trading_name) + '</div>' : '') + '</div></a>';
       return '<div class="opp-row" data-href="/lead/' + o.id + '">'
         + '<span style="display:flex;align-items:center;gap:8px;">' + nameHtml + '</span>'
         + '<span class="col-md"><span class="lead-county">' + escHtml(o.county || '--') + '</span></span>'
         + '<span class="col-lg"><span class="lead-cro-status">' + croDot + '<span>' + escHtml(croDisplay) + '</span></span></span>'
         + '<span class="col-fit">' + ring + '</span>'
-        + '<span class="col-md">' + sizeEl + '</span>'
+        + '<span class="col-preview"><button type="button" class="lead-preview-btn" data-id="' + o.id + '" title="Quick preview" aria-label="Quick preview"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M1 12s4-7 11-7 11 7 11 7-4 7-11 7-11-7-11-7z"/><circle cx="12" cy="12" r="3"/></svg></button></span>'
         + '<span><svg class="lead-arrow" fill="none" stroke="currentColor" viewBox="0 0 24 24" width="14" height="14"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"/></svg></span>'
         + '</div>';
     }).join('');
@@ -501,10 +499,9 @@ let sortDir = 'desc';
 function setSort(key) {
   if (sortKey === key) sortDir = sortDir === 'asc' ? 'desc' : 'asc';
   else { sortKey = key; sortDir = 'desc'; }
-  var bandOrder = { '1-10':1, '11-50':2, '51-200':3, '200+':4 };
   allLeads.sort(function(a, b) {
-    var va = key === 'employee_band' ? bandOrder[a[key]] : a[key];
-    var vb = key === 'employee_band' ? bandOrder[b[key]] : b[key];
+    var va = a[key];
+    var vb = b[key];
     if (va == null) va = -Infinity;
     if (vb == null) vb = -Infinity;
     if (typeof va === 'string') va = va.toLowerCase();
@@ -590,15 +587,6 @@ function renderLeads(leads) {
       emailBadge = '<span class="lead-badge-muted">--</span>';
     }
 
-    let sizeEl;
-    if (isInactive) {
-      sizeEl = '<span class="lead-badge-muted">--</span>';
-    } else if (lead.employee_band) {
-      sizeEl = '<span class="lead-badge-assessed">' + escHtml(lead.employee_band) + '</span>';
-    } else {
-      sizeEl = '<span class="lead-badge-muted">--</span>';
-    }
-
     var fitCircleHtml = assessEl;
     if (isEnriched && lead.qualification_score != null) {
       var fs = Math.min(lead.qualification_score, 100);
@@ -621,7 +609,6 @@ function renderLeads(leads) {
     + '<td class="col-lg"><span class="lead-cro-status">' + croDot + '<span>' + escHtml(croDisplay) + '</span></span></td>'
     + '<td class="col-fit">' + fitCircleHtml + '</td>'
     + '<td class="col-preview"><button type="button" class="lead-preview-btn" data-id="' + lead.id + '" title="Quick preview" aria-label="Quick preview"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M1 12s4-7 11-7 11 7 11 7-4 7-11 7-11-7-11-7z"/><circle cx="12" cy="12" r="3"/></svg></button></td>'
-    + '<td class="col-md">' + sizeEl + '</td>'
     + '<td class="col-lg" style="text-align:center;">' + emailBadge + '</td>'
     + '<td><svg class="lead-arrow" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"/></svg></td>';
     tbody.appendChild(row);
@@ -791,22 +778,60 @@ var OPP_SIGNAL_LABELS = {
   decision_maker_access: 'Decision-maker access',
 };
 
-// Highest-pct dimension wins; business_fit wins ties because it's first in
-// OPP_SIGNAL_ORDER and only a strictly-greater pct replaces the running
-// best — see the design spec's tie-break rule.
-function topOpportunityDimension(signal) {
+// Preview panel shows Business Fit specifically — not whichever of the 6
+// signals happens to score highest — since that's the one dimension name
+// that means something to a salesperson glancing at the panel; a
+// highest-wins pick could surface "Regulatory fit" instead, which reads as
+// off-topic here.
+function businessFitDimension(signal) {
   if (!signal) return null;
-  var best = null;
-  for (var i = 0; i < OPP_SIGNAL_ORDER.length; i++) {
-    var key = OPP_SIGNAL_ORDER[i];
-    var dim = signal[key];
-    if (!dim) continue;
-    // Same level->pct fallback as lead.htm's renderScorecard, so the two
-    // surfaces never disagree about a dimension that lacks a numeric pct.
-    var pct = dim.pct != null ? dim.pct : (dim.level === 'high' ? 90 : dim.level === 'medium' ? 58 : 18);
-    if (!best || pct > best.pct) best = { key: key, dim: dim, pct: pct };
-  }
-  return best;
+  var dim = signal.business_fit;
+  if (!dim) return null;
+  // Same level->pct fallback as lead.htm's renderScorecard, so the two
+  // surfaces never disagree about a dimension that lacks a numeric pct.
+  var pct = dim.pct != null ? dim.pct : (dim.level === 'high' ? 90 : dim.level === 'medium' ? 58 : 18);
+  return { key: 'business_fit', dim: dim, pct: pct };
+}
+
+// Same ring-drawing math as lead.htm's renderRing() (frontend/lead.htm:990),
+// re-expressed as an HTML-string builder since this panel renders via
+// innerHTML rather than persistent DOM node updates.
+function renderConfidenceRingHtml(rc) {
+  if (rc == null) return '';
+  var pct = typeof rc === 'number' && rc <= 1 ? Math.round(rc * 100) : Math.round(rc);
+  var level = confidenceLevel(pct);
+  var color = level === 'high' ? 'var(--teal)' : level === 'medium' ? 'var(--amber)' : 'var(--rose)';
+  var circ = 138.2;
+  var off = (circ * (1 - pct / 100)).toFixed(1);
+  return '<div class="confidence-ring-wrap">'
+    + '<svg class="confidence-ring" width="52" height="52" viewBox="0 0 52 52">'
+    + '<circle cx="26" cy="26" r="22" fill="none" stroke="var(--border-panel-light)" stroke-width="5"/>'
+    + '<circle cx="26" cy="26" r="22" fill="none" stroke="' + color + '" stroke-width="5" stroke-linecap="round" stroke-dasharray="' + circ + '" stroke-dashoffset="' + off + '" transform="rotate(-90 26 26)"/>'
+    + '</svg>'
+    + '<div><div class="confidence-num" style="color:' + color + ';">' + pct + '%</div><div class="confidence-label">Research confidence</div></div>'
+    + '</div>';
+}
+
+// Same three-tier color mapping lead.htm's Overall Fit Score box uses
+// (frontend/lead.htm:1512-1519) - re-implemented cleanly here rather than
+// reusing its exact replace()-chain, which is a latent no-op past its first
+// two calls; this produces the identical visual result (color + tinted
+// background per tier) without carrying that bug into shared code.
+function fitLevelColors(score) {
+  if (score >= 70) return { color: 'var(--teal)', bg: 'rgba(20,200,160,0.15)', text: 'Strong' };
+  if (score >= 40) return { color: 'var(--amber)', bg: 'rgba(56,189,248,0.15)', text: 'Moderate' };
+  return { color: 'var(--rose)', bg: 'rgba(244,63,94,0.15)', text: 'Low' };
+}
+
+// Duplicate of lead.htm's levelClass() (frontend/lead.htm:981) - same
+// rationale as yearsFrom(): a 5-line pure function, not worth a cross-file
+// dependency for this alone.
+function levelClass(level) {
+  if (!level) return 'lvl-low';
+  var l = level.toLowerCase();
+  if (l === 'high') return 'lvl-high';
+  if (l === 'medium') return 'lvl-medium';
+  return 'lvl-low';
 }
 
 function renderLeadPreview(detail) {
@@ -821,16 +846,17 @@ function renderLeadPreview(detail) {
 
   if (title) title.textContent = company.legal_name || 'Preview';
 
-  var registryHtml = '<div class="lp-section lp-registry">'
-    + '<div class="lp-registry-row"><span class="lp-label">County</span><span>' + escHtml(company.county || '--') + '</span></div>'
-    + '<div class="lp-registry-row"><span class="lp-label">CRO Status</span><span>' + escHtml(company.cro_status || '--') + '</span></div>'
-    + '<div class="lp-registry-row"><span class="lp-label">Years operating</span><span>' + (yearsFrom(company.incorporation_date) != null ? yearsFrom(company.incorporation_date) : '--') + '</span></div>'
-    + '</div>';
+  var registryHtml = '<div class="lp-section card">'
+    + '<div class="id-facts">'
+    + '<div class="id-fact"><span class="id-fact-label">County</span><span class="id-fact-value">' + escHtml(company.county || '--') + '</span></div>'
+    + '<div class="id-fact"><span class="id-fact-label">CRO Status</span><span class="id-fact-value mono">' + escHtml(company.cro_status || '--') + '</span></div>'
+    + '<div class="id-fact"><span class="id-fact-label">Years operating</span><span class="id-fact-value mono">' + (yearsFrom(company.incorporation_date) != null ? yearsFrom(company.incorporation_date) : '--') + '</span></div>'
+    + '</div></div>';
 
   if (!isAssessed) {
     body.innerHTML = registryHtml
       + '<div class="lp-section">'
-      + '<button type="button" class="lp-assess-cta" id="lp-assess-cta-btn" data-id="' + escHtml(company.id) + '">Assess this lead</button>'
+      + '<button type="button" class="btn-solid full-width" id="lp-assess-cta-btn" data-id="' + escHtml(company.id) + '">Assess this lead</button>'
       + '</div>';
     var assessBtn = document.getElementById('lp-assess-cta-btn');
     if (assessBtn) {
@@ -847,7 +873,7 @@ function renderLeadPreview(detail) {
   if (contact) {
     var overall = contact.confidence && contact.confidence.overall;
     var tier = tierColor(overall && overall.level);
-    contactHtml = '<div class="lp-section"><div class="lp-section-title">Contact</div>'
+    contactHtml = '<div class="lp-section card"><div class="scorecard-title">Contact</div>'
       + '<div class="ct-card" style="--tier-color:' + tier + ';">'
       + '<div class="ct-header">'
       + '<div class="ct-avatar">' + escHtml(initialsOf(contact.name || contact.full_name)) + '</div>'
@@ -864,27 +890,38 @@ function renderLeadPreview(detail) {
       + '</div></div>';
   } else {
     var address = company.registered_address;
-    contactHtml = '<div class="lp-section"><div class="lp-section-title">Contact</div>'
-      + '<div class="lp-no-contact">No publicly listed directors, senior management, email, or phone number could be verified.'
+    contactHtml = '<div class="lp-section card"><div class="scorecard-title">Contact</div>'
+      + '<div class="lp-loading">No publicly listed directors, senior management, email, or phone number could be verified.'
       + (address ? '<br><strong>Registered office:</strong> ' + escHtml(address) : '')
       + '</div></div>';
   }
 
   var score = enrichment.qualification_score;
-  var topDim = topOpportunityDimension(na.opportunity_signal || enrichment.opportunity_signal);
-  var scoreHtml = '<div class="lp-section">'
-    + '<div class="lp-score-row"><span class="lp-score-num">' + escHtml(String(score)) + '</span><span class="lp-score-max">/100</span></div>'
-    + (topDim ? '<div class="lp-dimension"><span class="lp-label">' + escHtml(OPP_SIGNAL_LABELS[topDim.key]) + ' (' + Math.round(topDim.pct) + '%)</span><p>' + escHtml(topDim.dim.reason || '') + '</p></div>' : '')
+  var fitColors = fitLevelColors(score);
+  var bizFit = businessFitDimension(na.opportunity_signal || enrichment.opportunity_signal);
+  var rc = na.research_confidence != null ? na.research_confidence : enrichment.research_confidence;
+  var scoreHtml = '<div class="lp-section card">'
+    + '<div style="font-size:10px; text-transform:uppercase; letter-spacing:0.08em; color:var(--text-muted); font-weight:700; margin-bottom:3px;">Overall Fit Score</div>'
+    + '<div style="display:flex; align-items:baseline; gap:4px;">'
+    + '<span style="font-size:22px; font-weight:800; font-family:\'Sora\',sans-serif; color:' + fitColors.color + ';">' + escHtml(String(score)) + '</span>'
+    + '<span style="font-size:12px; color:var(--text-muted);">/100</span>'
+    + '<span style="margin-left:6px; font-size:10px; font-weight:700; text-transform:uppercase; letter-spacing:0.06em; padding:2px 6px; border-radius:4px; color:' + fitColors.color + '; background:' + fitColors.bg + ';">' + fitColors.text + '</span>'
+    + '</div>'
+    + renderConfidenceRingHtml(rc)
+    + (bizFit ? '<div class="score-row ' + levelClass(bizFit.dim.level) + '" style="margin-top:14px;">'
+      + '<div class="score-row-top"><span class="score-row-label">' + escHtml(OPP_SIGNAL_LABELS[bizFit.key]) + '</span><span class="score-row-level">' + Math.round(bizFit.pct) + '%</span></div>'
+      + '<div class="score-track"><div class="score-fill" style="width:' + Math.max(2, Math.min(100, Math.round(bizFit.pct))) + '%"></div></div>'
+      + (bizFit.dim.reason ? '<div class="score-row-reason">' + escHtml(bizFit.dim.reason) + '</div>' : '')
+      + '</div>' : '')
     + '</div>';
 
   var summary = na.executive_summary || enrichment.executive_summary || '';
   var angle = na.opening_angle || enrichment.opening_angle || '';
-  var narrativeHtml = '<div class="lp-section">'
-    + (summary ? '<div class="lp-section-title">Why this score</div><p class="lp-summary">' + escHtml(summary) + '</p>' : '')
-    + (angle ? '<div class="lp-section-title">Approach</div><p class="lp-angle">' + escHtml(angle) + '</p>' : '')
-    + '</div>';
+  var narrativeHtml = ''
+    + (summary ? '<div class="lp-section card"><div class="scorecard-title">Why This Score</div><p style="font-size:13px; line-height:1.6; color:var(--text-secondary); margin:0;">' + escHtml(summary) + '</p></div>' : '')
+    + (angle ? '<div class="lp-section card card-highlight"><div class="list-title pos">Approach</div><div class="persona-box ref"><p>' + escHtml(angle) + '</p></div></div>' : '');
 
-  var profileLinkHtml = '<div class="lp-section"><a class="lp-profile-link" href="/lead/' + escHtml(company.id) + '">Open full profile →</a></div>';
+  var profileLinkHtml = '<div class="lp-section"><a class="btn-solid full-width" style="display:block; text-align:center; text-decoration:none; box-sizing:border-box;" href="/lead/' + escHtml(company.id) + '">Open Full Profile →</a></div>';
 
   body.innerHTML = registryHtml + contactHtml + scoreHtml + narrativeHtml + profileLinkHtml;
 }

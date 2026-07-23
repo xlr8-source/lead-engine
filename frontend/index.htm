@@ -467,6 +467,7 @@
   .opp-row .col-md  { text-align: center; width: 60px; flex-shrink: 0; }
   .opp-row .col-lg  { text-align: center; width: 80px; flex-shrink: 0; }
   .opp-row .col-fit { text-align: center; width: 48px; flex-shrink: 0; }
+  .opp-row .col-preview { text-align: center; width: 36px; flex-shrink: 0; display: flex; align-items: center; justify-content: center; }
   .opp-row > span:last-child { width: 20px; flex-shrink: 0; display: flex; align-items: center; justify-content: center; }
   .opp-row .lead-firm-link  { display: flex; align-items: center; gap: 8px; color: var(--text-primary); text-decoration: none; min-width: 0; }
   .opp-row .lead-firm-name  { font-size: 13px; font-weight: 500; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
@@ -873,26 +874,63 @@
 
   .lp-section { margin-bottom: 20px; }
   .lp-section:last-child { margin-bottom: 0; }
-  .lp-section-title { font-size: 11px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.03em; color: var(--text-muted); margin-bottom: 8px; }
-  .lp-label { font-size: 12px; color: var(--text-muted); }
-  .lp-registry-row { display: flex; justify-content: space-between; font-size: 13px; color: var(--text-primary); padding: 4px 0; }
-  .lp-loading, .lp-no-contact { font-size: 13px; color: var(--text-secondary); }
-  .lp-score-row { display: flex; align-items: baseline; gap: 4px; margin-bottom: 8px; }
-  .lp-score-num { font-size: 28px; font-weight: 700; color: var(--text-primary); }
-  .lp-score-max { font-size: 13px; color: var(--text-muted); }
-  .lp-dimension p { font-size: 13px; color: var(--text-secondary); margin-top: 4px; }
-  .lp-summary, .lp-angle { font-size: 13px; line-height: 1.5; color: var(--text-secondary); }
-  .lp-profile-link { display: inline-block; font-size: 13px; font-weight: 600; color: var(--blue); text-decoration: none; }
-  .lp-profile-link:hover { text-decoration: underline; }
-  .lp-assess-cta {
-    width: 100%; padding: 10px; border-radius: 8px; border: none;
-    background: var(--paybrix-red); color: #fff; font-size: 13px; font-weight: 600; cursor: pointer;
-  }
+  .lp-loading { font-size: 13px; color: var(--text-secondary); }
   .lp-error { font-size: 13px; color: var(--rose); }
   .lp-retry-btn {
     margin-top: 10px; padding: 6px 14px; border-radius: 6px; border: 1px solid var(--border);
     background: transparent; color: var(--text-primary); font-size: 12px; cursor: pointer;
   }
+
+  /* ── Below: exact visual language copied verbatim from lead.htm, so the
+     panel reads as an extension of the detail page, not a separate design. ── */
+  .card{
+    background:var(--bg-panel); border:1px solid var(--border-panel); box-shadow:var(--shadow-panel);
+    backdrop-filter:blur(16px); -webkit-backdrop-filter:blur(16px); border-radius:0; padding:18px;
+    transition:background 0.3s ease, border-color 0.3s ease, box-shadow 0.3s ease;
+  }
+  .card-highlight{ position:relative; }
+  .card-highlight::before{ content:''; position:absolute; top:0; left:0; right:0; height:3px; background:var(--blue); opacity:.85; }
+
+  .id-facts{ display:flex; flex-direction:column; gap:9px; }
+  .id-fact{ display:flex; justify-content:space-between; gap:8px; font-size:12px; }
+  .id-fact-label{ color:var(--text-muted); }
+  .id-fact-value{ color:var(--text-primary); font-weight:500; text-align:right; }
+  .id-fact-value.mono{ font-family:'JetBrains Mono',monospace; }
+
+  .scorecard-title{ font-family:'Sora',sans-serif; font-size:12px; font-weight:700; text-transform:uppercase; letter-spacing:.4px; color:var(--text-muted); margin-bottom:14px; }
+  .score-row{ margin-bottom:13px; }
+  .score-row:last-child{ margin-bottom:0; }
+  .score-row-top{ display:flex; justify-content:space-between; font-size:12px; margin-bottom:5px; }
+  .score-row-label{ color:var(--text-secondary); }
+  .score-row-level{ font-weight:700; font-size:11px; }
+  .score-track{ height:5px; border-radius:0px; background:rgba(255,255,255,0.06); overflow:hidden; }
+  .score-fill{ height:100%; border-radius:0px; }
+  .lvl-high .score-row-level{ color:var(--teal); } .lvl-high .score-fill{ background:var(--teal); }
+  .lvl-medium .score-row-level{ color:var(--amber); } .lvl-medium .score-fill{ background:var(--amber); }
+  .lvl-low .score-row-level{ color:var(--rose); } .lvl-low .score-fill{ background:var(--rose); }
+  .score-row-reason{ font-size:11px; color:var(--text-muted); margin-top:5px; line-height:1.4; }
+
+  .confidence-ring-wrap{ display:flex; align-items:center; gap:14px; margin-bottom:4px; margin-top:16px; }
+  .confidence-ring{ flex-shrink:0; }
+  .confidence-num{ font-family:'JetBrains Mono',monospace; font-size:22px; font-weight:600; }
+  .confidence-label{ font-size:11px; color:var(--text-muted); margin-top:2px; }
+
+  .list-title{ font-size:11px; font-weight:700; text-transform:uppercase; letter-spacing:.3px; margin-bottom:10px; display:flex; align-items:center; gap:6px; }
+  .list-title.pos{ color:var(--teal); }
+  .persona-box{ border-radius:var(--radius-md); padding:14px; }
+  .persona-box.ref{ background:var(--teal-dim); border:1px solid rgba(52,211,153,0.25); }
+  .persona-box p{ margin:0; font-size:12.5px; color:var(--text-secondary); line-height:1.6; }
+
+  .btn-solid{
+    font-size:11px; font-weight:700; padding:8px 18px; border-radius:8px;
+    background:var(--paybrix-red); color:#fff; border:none;
+    cursor:pointer; font-family:var(--font-mono); text-transform:uppercase; letter-spacing:0.06em;
+    box-shadow: 0 4px 16px -4px rgba(220,38,38,0.45);
+    transition: filter 0.15s, transform 0.1s;
+  }
+  .btn-solid:hover{ filter:brightness(1.08); }
+  .btn-solid:active{ transform:translateY(1px); }
+  .btn-solid.full-width{ width:100%; }
 
   .contact-grid{ display:grid; grid-template-columns:1fr 1fr; gap:14px; }
   @media (max-width:640px){ .contact-grid{ grid-template-columns:1fr; } }
@@ -1158,7 +1196,6 @@
             <th class="col-lg"><button class="sort-btn" data-col="status" onclick="handleSortClick('status')">CRO Status <span class="sort-arrow" id="arrow-status">↕</span></button></th>
             <th class="col-fit"><button class="sort-btn" id="sort-score" data-col="score" onclick="handleSortClick('score')">Fit <span class="sort-arrow" id="arrow-score">↕</span></button></th>
             <th class="col-preview"></th>
-            <th class="col-md"><button class="sort-btn" data-col="size" onclick="handleSortClick('size')">Size <span class="sort-arrow" id="arrow-size">↕</span></button></th>
             <th class="col-lg" style="text-align:center;">Outreach</th>
             <th></th>
           </tr>
@@ -1255,7 +1292,7 @@
     }
 
     // Map our column names to app.js sort keys
-    var COL_KEY_MAP = { name:'legal_name', county:'county', status:'cro_status', score:'qualification_score', size:'employee_band' };
+    var COL_KEY_MAP = { name:'legal_name', county:'county', status:'cro_status', score:'qualification_score' };
 
     window.handleSortClick = function(col){
       if (currentCol === col){
