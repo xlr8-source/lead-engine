@@ -829,6 +829,15 @@
     .topbar{ flex-direction:column; align-items:flex-start; }
     .batch-control{ flex-wrap:wrap; }
   }
+
+  .col-preview { width: 36px; }
+  .lead-preview-btn {
+    display: inline-flex; align-items: center; justify-content: center;
+    width: 28px; height: 28px; border-radius: 6px; border: 1px solid transparent;
+    background: transparent; color: var(--text-muted); cursor: pointer;
+    transition: background 0.15s ease, color 0.15s ease;
+  }
+  .lead-preview-btn:hover { background: var(--bg-panel-light); color: var(--text-primary); border-color: var(--border); }
 </style>
 </head>
 <body>
@@ -1053,6 +1062,7 @@
             <th class="col-md"><button class="sort-btn" id="sort-county" data-col="county" onclick="handleSortClick('county')">County <span class="sort-arrow" id="arrow-county">↕</span></button></th>
             <th class="col-lg"><button class="sort-btn" data-col="status" onclick="handleSortClick('status')">CRO Status <span class="sort-arrow" id="arrow-status">↕</span></button></th>
             <th class="col-fit"><button class="sort-btn" id="sort-score" data-col="score" onclick="handleSortClick('score')">Fit <span class="sort-arrow" id="arrow-score">↕</span></button></th>
+            <th class="col-preview"></th>
             <th class="col-md"><button class="sort-btn" data-col="size" onclick="handleSortClick('size')">Size <span class="sort-arrow" id="arrow-size">↕</span></button></th>
             <th class="col-lg" style="text-align:center;">Outreach</th>
             <th></th>
