@@ -68,6 +68,22 @@ CREATE TABLE IF NOT EXISTS outreach_emails (
     status TEXT DEFAULT 'draft'
 );
 
+-- An assessment that ran cleanly and was then refused storage by the guard
+-- pipeline (GUARD_ENFORCEMENT=block). This is a real outcome, not an error:
+-- without it a rejected firm is indistinguishable from one nobody has looked
+-- at yet, and the reason lived only in an in-memory run registry that a
+-- restart erased. At most one live row per company — cleared when a later
+-- assessment for that company succeeds.
+CREATE TABLE IF NOT EXISTS assessment_rejections (
+    id TEXT PRIMARY KEY,                 -- uuid4
+    company_id TEXT NOT NULL REFERENCES companies(id),
+    reason TEXT NOT NULL,                -- human-readable, names the failed guard(s)
+    guard_failures TEXT,                 -- json array of guard IDs
+    guard_score REAL,                    -- 0.0–100.0 pipeline score at rejection
+    llm_model TEXT,
+    rejected_at TEXT NOT NULL            -- ISO-8601
+);
+
 CREATE TABLE IF NOT EXISTS ingestion_runs (
     id TEXT PRIMARY KEY,                 -- uuid4
     source TEXT,
@@ -93,3 +109,4 @@ CREATE INDEX IF NOT EXISTS idx_enrichment_company ON enrichment(company_id);
 CREATE INDEX IF NOT EXISTS idx_enrichment_score ON enrichment(qualification_score);
 CREATE INDEX IF NOT EXISTS idx_outreach_company ON outreach_emails(company_id);
 CREATE INDEX IF NOT EXISTS idx_outreach_status ON outreach_emails(status);
+CREATE INDEX IF NOT EXISTS idx_rejections_company ON assessment_rejections(company_id);

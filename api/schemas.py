@@ -33,6 +33,10 @@ class Company(CompanyBase):
     recommended_angle: Optional[str] = None
     email_status: Optional[str] = None
     assessed_at: Optional[str] = None
+    # Assessed, then refused storage by the guard pipeline. Distinct from
+    # never-assessed, which also has a null qualification_score.
+    rejected_at: Optional[str] = None
+    rejection_reason: Optional[str] = None
 
     class Config:
         from_attributes = True
@@ -65,6 +69,7 @@ class CompanyDetailResponse(BaseModel):
     ingested_at: str
     raw_payload: Optional[str] = None
     enrichment: Optional[dict] = None
+    rejection: Optional[dict] = None
     email: Optional[dict] = None
     contacts: List[dict] = []
     employee_band: Optional[str] = None

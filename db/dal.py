@@ -369,6 +369,9 @@ def upsert_enrichment(conn: sqlite3.Connection, enrichment: dict) -> str:
     else:
         guard_passed_col = 1 if _guard_verdict else 0
 
+    # A stored assessment supersedes any earlier rejection for this company.
+    clear_rejection(conn, enrichment["company_id"])
+
     enrichment_id = str(uuid.uuid4())
     conn.execute(
         """
@@ -399,6 +402,48 @@ def upsert_enrichment(conn: sqlite3.Connection, enrichment: dict) -> str:
         ),
     )
     return enrichment_id
+
+
+def record_rejection(
+    conn: sqlite3.Connection,
+    company_id: str,
+    reason: str,
+    guard_failures: Optional[list] = None,
+    guard_score: Optional[float] = None,
+    llm_model: Optional[str] = None,
+) -> str:
+    """Persist an assessment that ran cleanly and was refused storage by the
+    guard pipeline.
+
+    Replaces any prior rejection for the company rather than stacking rows —
+    re-assessing a firm that fails again is the same fact, not a new one.
+    """
+    conn.execute("DELETE FROM assessment_rejections WHERE company_id = ?", (company_id,))
+    rejection_id = str(uuid.uuid4())
+    conn.execute(
+        """
+        INSERT INTO assessment_rejections
+            (id, company_id, reason, guard_failures, guard_score, llm_model, rejected_at)
+        VALUES (?, ?, ?, ?, ?, ?, ?)
+        """,
+        (
+            rejection_id,
+            company_id,
+            reason,
+            json.dumps(guard_failures or []),
+            guard_score,
+            llm_model,
+            _now_iso(),
+        ),
+    )
+    return rejection_id
+
+
+def clear_rejection(conn: sqlite3.Connection, company_id: str) -> None:
+    """Drop any recorded rejection for this company. Called when an
+    assessment is successfully stored, so a firm that failed once and then
+    passed on re-assessment doesn't show as assessed AND rejected."""
+    conn.execute("DELETE FROM assessment_rejections WHERE company_id = ?", (company_id,))
 
 
 def update_enrichment_contacts(conn: sqlite3.Connection, company_id: str, contacts: list[dict]) -> bool:
@@ -546,12 +591,18 @@ def get_companies(
             c.eircode, c.source, c.ingested_at,
             e.qualification_score, e.employee_band, e.recommended_angle, e.billing_pain_points,
             e.generated_at AS assessed_at,
-            o.status AS email_status
+            o.status AS email_status,
+            -- "assessed and dropped, here's why" must be distinguishable from
+            -- "nobody has looked at this yet" — both otherwise present as a
+            -- null qualification_score.
+            r.rejected_at AS rejected_at,
+            r.reason      AS rejection_reason
         FROM companies c
         LEFT JOIN enrichment e ON e.company_id = c.id AND e.generated_at = (
             SELECT MAX(generated_at) FROM enrichment WHERE company_id = c.id
         )
         LEFT JOIN outreach_emails o ON o.company_id = c.id AND o.status = 'draft'
+        LEFT JOIN assessment_rejections r ON r.company_id = c.id
         WHERE 1=1
     """
     params: list[Any] = []
@@ -654,6 +705,12 @@ def get_company_detail(company_id: str) -> Optional[dict]:
             "SELECT * FROM contacts WHERE company_id = ?", (company_id,)
         ).fetchall()
 
+        rejection = conn.execute(
+            "SELECT * FROM assessment_rejections WHERE company_id = ? "
+            "ORDER BY rejected_at DESC LIMIT 1",
+            (company_id,),
+        ).fetchone()
+
     result = dict(company)
 
     if enrichment:
@@ -676,6 +733,16 @@ def get_company_detail(company_id: str) -> Optional[dict]:
 
     result["email"] = dict(email) if email else None
     result["contacts"] = [dict(c) for c in contacts]
+
+    if rejection:
+        rej = dict(rejection)
+        try:
+            rej["guard_failures"] = json.loads(rej.get("guard_failures") or "[]")
+        except (json.JSONDecodeError, TypeError):
+            rej["guard_failures"] = []
+        result["rejection"] = rej
+    else:
+        result["rejection"] = None
 
     return result
 

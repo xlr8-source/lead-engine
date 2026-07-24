@@ -61,6 +61,7 @@ from db.dal import (
     upsert_email,
     clear_all_enrichments,
     update_enrichment_contacts,
+    record_rejection,
 )
 from ingestion.runner import run_ingestion
 from engine.assessor import assess_company, generate_email, refresh_contacts
@@ -304,6 +305,7 @@ def api_enrich_all(limit: Optional[int] = Query(None, ge=0)):
             decision = evaluate_storage(enrichment)
             if not decision.store:
                 logger.warning(f"[API] [{idx}/{total}] REJECTED: {company_name} - {decision.reason}")
+                _record_rejection_safely(c["id"], enrichment, decision.reason)
                 return ("rejected", c, RuntimeError(decision.reason))
             with get_db_connection() as conn:
                 upsert_enrichment(conn, enrichment)
@@ -349,6 +351,25 @@ def api_enrich_all(limit: Optional[int] = Query(None, ge=0)):
     }
 
 
+def _record_rejection_safely(company_id: str, enrichment: dict, reason: str) -> None:
+    """Persist a guard rejection without letting a storage failure change the
+    outcome. The rejection already happened; failing to write the audit row is
+    a logging problem, not a reclassification of the assessment — letting it
+    raise turned a `rejected` outcome into a `failed` one, which reads as a
+    crash rather than a deliberate quality decision.
+    """
+    try:
+        with get_db_connection() as conn:
+            record_rejection(
+                conn, company_id, reason=reason,
+                guard_failures=enrichment.get("guard_failures"),
+                guard_score=enrichment.get("guard_score"),
+                llm_model=enrichment.get("llm_model"),
+            )
+    except Exception as exc:
+        logger.error(f"[API] Could not record rejection for {company_id}: {exc}", exc_info=True)
+
+
 def _run_assess_job(run_id: str, company: dict):
     company_id = company.get("id")
     company_name = company.get("legal_name", "Unknown")
@@ -365,6 +386,7 @@ def _run_assess_job(run_id: str, company: dict):
             # discarded. Surfaced as a failed run so the operator sees the
             # reason rather than a silent no-op with no new data on screen.
             logger.warning(f"[Run {run_id}] Assessment rejected for {company_name}: {decision.reason}")
+            _record_rejection_safely(company_id, enrichment, decision.reason)
             run_registry.finish_run(run_id, "failed", error=decision.reason)
             _log_event(f"ASSESS REJECTED company={company_id} run_id={run_id} reason={decision.reason}")
             return
