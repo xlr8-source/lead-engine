@@ -19,10 +19,28 @@ jobs:
       - name: Validate repo structure and Session Log
         run: python3 scripts/validate_repo.py .
 
-  # Add your real build/test steps below — this skeleton only wires up the
-  # precision audit so Session Log integrity is checked on every push/PR.
-  # build-and-test:
-  #   runs-on: ubuntu-latest
-  #   steps:
-  #     - uses: actions/checkout@v4
-  #     - run: [your build/test commands]
+  build-and-test:
+    runs-on: ubuntu-latest
+    env:
+      # engine/llm/provider.py raises at IMPORT time if no key is present, so
+      # without this every test that imports api.main or engine.assessor dies
+      # during collection. No network call is made — the suite stubs every LLM
+      # and search call — so a placeholder is sufficient and no real secret
+      # needs to reach CI.
+      LLM_API_KEY: ci-placeholder-not-a-real-key
+      LLM_PROVIDER: groq
+      TAVILY_API_KEY: ci-placeholder-not-a-real-key
+      DB_PATH: ci_test.db
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+          cache: pip
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements.txt
+          pip install pytest
+      - name: Run test suite
+        run: python -m pytest tests/ -q
