@@ -102,6 +102,7 @@ class BulkEnrichmentResponse(BaseModel):
     status: str
     attempted: int
     enriched: int
+    rejected: int = 0   # assessed cleanly, then blocked by the guard pipeline
     failed: int
     errors: List[dict] = []
 

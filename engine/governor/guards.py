@@ -35,6 +35,11 @@ class GuardResult:
     reason: str
     reasoning_steps: list[str] = field(default_factory=list)
     is_warning: bool = False  # True = soft fail (passes pipeline but flagged)
+    # True = the guard raised and never actually evaluated anything. Distinct
+    # from a soft fail: a soft fail is a judgement, this is the absence of one.
+    # `score` is meaningless on an errored result and is excluded from the
+    # pipeline average rather than averaged in as a middling number.
+    errored: bool = False
 
 
 class Guard:

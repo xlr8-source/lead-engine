@@ -46,7 +46,9 @@ CREATE TABLE IF NOT EXISTS enrichment (
     assessment_breakdown TEXT,           -- json dict of evidence factors (no scores)
     narrative_assessment TEXT,           -- json: {verified_evidence, ai_reasoning, hypotheses, questions}
     signal_strength TEXT DEFAULT 'low',  -- high | medium | low
-    guard_passed INTEGER DEFAULT 1,      -- 0 or 1 (boolean) — did all guards pass?
+    guard_passed INTEGER DEFAULT 0,      -- 0 or 1 (boolean), NULL = guards skipped.
+                                         -- Defaults to 0: a row written without
+                                         -- a verdict has not been shown to pass.
     guard_score REAL,                    -- 0.0–100.0 weighted guard pipeline score
     guard_failures TEXT,                 -- json array of failed guard IDs (e.g. ["EG-QUAL-001"])
     llm_model TEXT,

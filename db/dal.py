@@ -351,6 +351,24 @@ def upsert_enrichment(conn: sqlite3.Connection, enrichment: dict) -> str:
         (enrichment["company_id"],),
     )
 
+    # Three distinct states, and the difference matters to /api/guard-stats:
+    #   explicit None  → guards deliberately skipped (GUARD_ENFORCEMENT=off).
+    #                    Persist as NULL so the stats query, which filters on
+    #                    `guard_passed IS NOT NULL`, excludes it entirely.
+    #   key absent     → nobody ran guards on this record. Fail closed (0).
+    #                    This defaulted to True, so any write path that didn't
+    #                    run the pipeline was recorded as having passed it —
+    #                    biasing the pass rate toward "the system is clean".
+    #   True / False   → a real verdict.
+    _MISSING = object()
+    _guard_verdict = enrichment.get("guard_passed", _MISSING)
+    if _guard_verdict is _MISSING:
+        guard_passed_col = 0
+    elif _guard_verdict is None:
+        guard_passed_col = None
+    else:
+        guard_passed_col = 1 if _guard_verdict else 0
+
     enrichment_id = str(uuid.uuid4())
     conn.execute(
         """
@@ -374,7 +392,7 @@ def upsert_enrichment(conn: sqlite3.Connection, enrichment: dict) -> str:
             json.dumps(enrichment.get("assessment_breakdown", {})),
             json.dumps(enrichment.get("narrative_assessment", {})),
             enrichment.get("signal_strength", "low"),
-            1 if enrichment.get("guard_passed", True) else 0,
+            guard_passed_col,
             enrichment.get("guard_score"),
             json.dumps(enrichment.get("guard_failures", [])),
             _now_iso(),

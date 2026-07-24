@@ -63,6 +63,7 @@ from db.dal import (
 )
 from ingestion.runner import run_ingestion
 from engine.assessor import assess_company, generate_email, refresh_contacts
+from engine.governor.enforcement import evaluate_storage, get_enforcement_mode
 from engine.activity import registry as run_registry
 
 _LLM_MODEL = LLM_MODEL
@@ -280,6 +281,10 @@ def api_enrich_all(limit: Optional[int] = Query(None, ge=0)):
         logger.info(f"[API] [{idx}/{total}] Processing: {company_name}")
         try:
             enrichment = assess_company(c)
+            decision = evaluate_storage(enrichment)
+            if not decision.store:
+                logger.warning(f"[API] [{idx}/{total}] REJECTED: {company_name} - {decision.reason}")
+                return ("rejected", c, RuntimeError(decision.reason))
             with get_db_connection() as conn:
                 upsert_enrichment(conn, enrichment)
             logger.info(f"[API] [{idx}/{total}] SUCCESS: {company_name}")
@@ -297,22 +302,29 @@ def api_enrich_all(limit: Optional[int] = Query(None, ge=0)):
         outcomes = list(pool.map(_assess_one, enumerate(companies, 1)))
 
     count = sum(1 for status_, _, _ in outcomes if status_ == "ok")
+    rejected = sum(1 for status_, _, _ in outcomes if status_ == "rejected")
     rate_limited = any(status_ == "rate_limited" for status_, _, _ in outcomes)
+    # Guard rejections are reported separately from errors: nothing broke, the
+    # assessment was produced and deliberately not kept.
     errors = [
         {"company_id": c.get("id"), "company_name": c.get("legal_name"), "error": str(err)}
-        for status_, c, err in outcomes if status_ == "failed"
+        for status_, c, err in outcomes if status_ in ("failed", "rejected")
     ][:10]
 
     if rate_limited:
         logger.error(f"[API] === BULK ENRICHMENT RATE-LIMITED === {count}/{total} completed before abort")
         raise HTTPException(status_code=429, detail="API rate limit reached. Please try again later.")
 
-    logger.info(f"[API] === BULK ENRICHMENT COMPLETE === {count}/{total} successful")
+    logger.info(
+        f"[API] === BULK ENRICHMENT COMPLETE === {count}/{total} successful, "
+        f"{rejected} rejected by guards (mode={get_enforcement_mode()})"
+    )
     return {
         "status": "ok",
         "attempted": total,
         "enriched": count,
-        "failed": total - count,
+        "rejected": rejected,
+        "failed": total - count - rejected,
         "errors": errors,
     }
 
@@ -327,6 +339,15 @@ def _run_assess_job(run_id: str, company: dict):
     try:
         _log_event(f"ASSESS START company={company_id} run_id={run_id}")
         enrichment = assess_company(company, on_event=on_event)
+        decision = evaluate_storage(enrichment)
+        if not decision.store:
+            # Not an error — the assessment ran cleanly and was deliberately
+            # discarded. Surfaced as a failed run so the operator sees the
+            # reason rather than a silent no-op with no new data on screen.
+            logger.warning(f"[Run {run_id}] Assessment rejected for {company_name}: {decision.reason}")
+            run_registry.finish_run(run_id, "failed", error=decision.reason)
+            _log_event(f"ASSESS REJECTED company={company_id} run_id={run_id} reason={decision.reason}")
+            return
         with get_db_connection() as conn:
             upsert_enrichment(conn, enrichment)
         run_registry.finish_run(run_id, "complete")

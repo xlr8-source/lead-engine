@@ -8,7 +8,26 @@ sys.path.insert(0, str(ROOT))
 
 from engine.governor.runner import run_guards
 from engine.governor.schemas import EnrichmentSchema
-from engine.governor.guards import EvidenceQualityGuard, ConfidenceThresholdGuard, ExecutiveSummaryGuard
+from engine.governor.guards import Guard, GuardResult, EvidenceQualityGuard, ConfidenceThresholdGuard, ExecutiveSummaryGuard
+
+
+class _CrashingGuard(Guard):
+    GUARD_ID = "EG-TEST-BOOM"
+    GUARD_NAME = "Deliberately Broken Guard"
+
+    def evaluate(self, enrichment):
+        raise RuntimeError("guard implementation bug")
+
+
+class _CleanGuard(Guard):
+    GUARD_ID = "EG-TEST-OK"
+    GUARD_NAME = "Always Passes"
+
+    def evaluate(self, enrichment):
+        return GuardResult(
+            guard_id=self.GUARD_ID, guard_name=self.GUARD_NAME,
+            passed=True, score=100.0, reason="fine",
+        )
 
 
 def test_schema_valid_enrichment():
@@ -98,6 +117,43 @@ def test_executive_summary_guard_too_short():
     result = guard.evaluate(enrichment)
     assert not result.passed
     assert "too short" in result.reason
+
+
+def test_crashed_guard_is_reported_as_a_warning_not_a_pass():
+    """A guard that raises must degrade gracefully — but it did so by
+    synthesising `passed=True, score=50.0`, i.e. recording a check that never
+    ran as a half-decent pass. It must be flagged instead."""
+    report = run_guards({}, pipeline=[_CrashingGuard()])
+
+    assert "EG-TEST-BOOM" in report.warning_guards
+    result = report.guards_run[0]
+    assert result.is_warning is True
+    assert result.errored is True
+
+
+def test_crashed_guard_is_excluded_from_the_overall_score():
+    """One clean guard at 100 plus one crashed guard used to average to 75,
+    inventing a 25-point penalty out of a check that produced no evidence at
+    all. /api/guard-stats reports that average."""
+    report = run_guards({}, pipeline=[_CleanGuard(), _CrashingGuard()])
+
+    assert report.overall_score == 100.0
+
+
+def test_pipeline_where_every_guard_crashed_scores_zero_not_fifty():
+    """No guard produced evidence, so there is no quality signal to report."""
+    report = run_guards({}, pipeline=[_CrashingGuard()])
+
+    assert report.overall_score == 0.0
+
+
+def test_crashed_guard_does_not_block_the_pipeline():
+    """The graceful-degradation intent is preserved: a guard bug must not
+    take down every assessment."""
+    report = run_guards({}, pipeline=[_CrashingGuard(), _CleanGuard()])
+
+    assert report.passed is True
+    assert len(report.guards_run) == 2
 
 
 def test_executive_summary_guard_fallback_phrase():

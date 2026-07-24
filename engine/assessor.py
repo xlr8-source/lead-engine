@@ -23,6 +23,7 @@ from engine.activity import OnEvent
 
 # --- Governor ---
 from engine.governor.runner import run_guards
+from engine.governor.enforcement import get_enforcement_mode
 from engine.governor.schemas import EnrichmentSchema, Contact
 from engine.governor.email_guard import evaluate_email
 from pydantic import ValidationError
@@ -300,24 +301,45 @@ def assess_company(company: dict, on_event: OnEvent | None = None) -> dict:
         # ------------------------------------------------------------------
         _emit("sales_context", "Building commercial assessment", "running")
         _t_guards = time.perf_counter()
-        guard_report = run_guards(flat_for_validation)
-        guards_seconds = round(time.perf_counter() - _t_guards, 2)
-        guard_dict = guard_report.to_dict()
+        _enforcement = get_enforcement_mode()
 
-        result["guard_passed"] = guard_report.passed
-        result["guard_score"] = round(guard_report.overall_score, 1)
-        result["guard_failures"] = guard_report.failed_guards
-        _emit("sales_context", "Building commercial assessment", "complete", {
-            "guard_score": round(guard_report.overall_score, 1), "guard_passed": guard_report.passed,
-        })
-        result["guard_warnings"] = guard_report.warning_guards
-        result["guard_report"] = guard_dict
+        if _enforcement == "off":
+            # Escape hatch. The verdict stays None rather than defaulting to
+            # True — an assessment nobody checked must not be recorded as one
+            # that passed, or /api/guard-stats counts it toward the pass rate.
+            guards_seconds = round(time.perf_counter() - _t_guards, 2)
+            result["guard_passed"] = None
+            result["guard_score"] = None
+            result["guard_failures"] = []
+            result["guard_warnings"] = []
+            result["guard_report"] = None
+            _emit("sales_context", "Building commercial assessment", "complete", {
+                "guard_score": None, "guard_passed": None,
+            })
+            logger.warning(
+                f"[Governor] Guards SKIPPED (GUARD_ENFORCEMENT=off): {company_name} — "
+                f"assessment stored with no quality verdict."
+            )
+        else:
+            guard_report = run_guards(flat_for_validation)
+            guards_seconds = round(time.perf_counter() - _t_guards, 2)
+            guard_dict = guard_report.to_dict()
 
-        logger.info(
-            f"[Governor] Guards {'PASSED' if guard_report.passed else 'FAILED'}: "
-            f"{company_name} — score={guard_report.overall_score:.1f}, "
-            f"failed={guard_report.failed_guards}"
-        )
+            result["guard_passed"] = guard_report.passed
+            result["guard_score"] = round(guard_report.overall_score, 1)
+            result["guard_failures"] = guard_report.failed_guards
+            _emit("sales_context", "Building commercial assessment", "complete", {
+                "guard_score": round(guard_report.overall_score, 1), "guard_passed": guard_report.passed,
+            })
+            result["guard_warnings"] = guard_report.warning_guards
+            result["guard_report"] = guard_dict
+
+            logger.info(
+                f"[Governor] Guards {'PASSED' if guard_report.passed else 'FAILED'} "
+                f"(mode={_enforcement}): {company_name} — "
+                f"score={guard_report.overall_score:.1f}, "
+                f"failed={guard_report.failed_guards}"
+            )
 
         # Per-stage wall-clock breakdown — the only way a slow assessment
         # (research-bound vs LLM-bound) is diagnosable from logs/events.

@@ -42,6 +42,7 @@ class GuardReport:
                     "score": round(r.score, 1),
                     "reason": r.reason,
                     "is_warning": r.is_warning,
+                    "errored": r.errored,
                     "reasoning_steps": r.reasoning_steps,
                 }
                 for r in self.guards_run
@@ -82,14 +83,22 @@ def run_guards(
                 f"[Governor] Guard {guard.GUARD_ID} raised an exception: {exc}",
                 exc_info=True,
             )
+            # Non-blocking (a guard bug must not take down every assessment)
+            # but explicitly errored, not "passed with 50/100" — a check that
+            # never ran produced no evidence, and scoring it as half-decent
+            # quietly dragged /api/guard-stats' average toward the middle.
             result = GuardResult(
                 guard_id=guard.GUARD_ID,
                 guard_name=guard.GUARD_NAME,
                 passed=True,
-                score=50.0,
-                reason=f"Guard evaluation failed with exception: {exc}. Defaulting to pass.",
+                score=0.0,
+                reason=(
+                    f"Guard evaluation failed with exception: {exc}. This check "
+                    f"did not run — treat its dimension as unverified, not as passed."
+                ),
                 reasoning_steps=[f"Exception: {exc}"],
                 is_warning=True,
+                errored=True,
             )
 
         results.append(result)
@@ -116,11 +125,12 @@ def run_guards(
                 f"[Governor] Guard PASSED: {result.guard_id} — {result.reason}"
             )
 
-    # Compute overall score: average of all guards that ran
-    if results:
-        overall_score = sum(r.score for r in results) / len(results)
-    else:
-        overall_score = 0.0
+    # Average over guards that actually evaluated something. A crashed guard
+    # contributes no evidence, so including it would invent a score from a
+    # check that never happened. If every guard crashed there is no quality
+    # signal at all, which is 0, not the average of nothing.
+    scored = [r for r in results if not r.errored]
+    overall_score = sum(r.score for r in scored) / len(scored) if scored else 0.0
 
     report = GuardReport(
         passed=not hard_failed,
