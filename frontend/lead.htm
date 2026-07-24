@@ -227,6 +227,14 @@ body.theme-switching *::after {
 .id-website{ margin-top:14px; }
 .id-website a{ font-size:12px; color:var(--amber); display:flex; align-items:center; gap:5px; }
 .id-website a:hover{ text-decoration:underline; }
+.rejection-box{ margin-bottom:18px; padding:13px 15px; border:1px solid var(--rose); border-left:3px solid var(--rose); border-radius:var(--radius-md); background:var(--rose-dim); display:flex; align-items:flex-start; gap:10px; color:var(--text-primary); font-size:12.5px; }
+.rejection-box svg{ color:var(--rose); flex-shrink:0; margin-top:1px; }
+.rejection-reason{ margin-top:4px; color:var(--text-secondary); font-size:12px; }
+.rejection-meta{ margin-top:3px; color:var(--text-muted); font-size:11px; font-family:var(--font-mono); }
+/* --rose is 2.57:1 on the light background — under WCAG AA even for a
+   non-text UI element (3:1). --coral already exists and measures 4.62:1. */
+body.light-theme .rejection-box{ border-color:var(--coral); }
+body.light-theme .rejection-box svg{ color:var(--coral); }
 .no-website-box{ margin-top:14px; padding:9px 11px; border:1px dashed var(--border); border-radius:var(--radius-sm); font-size:11.5px; color:var(--text-muted); display:flex; align-items:center; gap:7px; }
 
 /* Confidence ring + Business Fit ring — same shape/markup, side by side */
@@ -591,6 +599,8 @@ details.raw pre{ margin:0 20px 18px; font-size:11px; color:var(--text-muted); ba
   <!-- MAIN CONTENT -->
   <main class="content" id="d-content-main">
 
+    <div id="d-rejection-banner" style="display:none;"></div>
+
     <!-- Executive Assessment -->
     <div class="card">
       <div class="section-title">
@@ -734,7 +744,7 @@ details.raw pre{ margin:0 20px 18px; font-size:11px; color:var(--text-muted); ba
   </div>
 </div>
 
-<script src="/static/app.js?v=11"></script>
+<script src="/static/app.js?v=12"></script>
 <script>
 var companyId = window.location.pathname.replace(/\/+$/, '').split('/').pop();
 var _enrichment = null;
@@ -1376,6 +1386,30 @@ async function loadLead(id) {
 
   var company = data.company || data;
   _company = company;
+  // A guard rejection means an assessment ran and was deliberately dropped.
+  // Surfaced as a banner because the rest of this page renders empty in that
+  // case, which otherwise reads as "assessment never ran".
+  var rejectionBanner = document.getElementById('d-rejection-banner');
+  if (rejectionBanner) {
+    var rej = data.rejection;
+    if (rej && !data.enrichment) {
+      var failedIds = (rej.guard_failures || []).join(', ');
+      rejectionBanner.innerHTML = '<div class="rejection-box">'
+        + '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><path d="M12 8v4m0 4h.01"/></svg>'
+        + '<div><strong>Assessment rejected by the quality guards</strong>'
+        + '<div class="rejection-reason">' + escHtml(rej.reason || '') + '</div>'
+        + (failedIds ? '<div class="rejection-meta">Failed: ' + escHtml(failedIds)
+            + (rej.guard_score != null ? ' &middot; score ' + escHtml(String(rej.guard_score)) + '/100' : '')
+            + '</div>' : '')
+        + (rej.rejected_at ? '<div class="rejection-meta">' + escHtml(formatDateTime(rej.rejected_at)) + '</div>' : '')
+        + '</div></div>';
+      rejectionBanner.style.display = '';
+    } else {
+      rejectionBanner.innerHTML = '';
+      rejectionBanner.style.display = 'none';
+    }
+  }
+
   var enrichment = data.enrichment || {};
   _enrichment = enrichment;
   var isEnriched = enrichment && enrichment.qualification_score !== null && enrichment.qualification_score !== undefined;

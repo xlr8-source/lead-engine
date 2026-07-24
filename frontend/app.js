@@ -570,6 +570,14 @@ function renderLeads(leads) {
     } else if (errorMsg) {
       var isRateLimit = errorMsg.includes('429') || errorMsg.toLowerCase().includes('rate limit');
       assessEl = '<span class="lead-badge-error">' + (isRateLimit ? 'Rate limit' : 'Failed') + '</span>';
+    } else if (!isEnriched && lead.rejected_at) {
+      // Assessed, then refused storage by the guard pipeline. Without this
+      // the firm is indistinguishable from one nobody has looked at yet —
+      // both have a null qualification_score. Still clickable, because a
+      // re-assessment is exactly what you'd want to do next.
+      assessEl = '<button class="lead-btn lead-btn-assess qualify-btn lead-btn-rejected" data-id="' + lead.id
+        + '" title="' + escHtml(lead.rejection_reason || 'Assessment rejected by the quality guards')
+        + '">Rejected</button>';
     } else if (isEnriched) {
       assessEl = '<button class="lead-btn lead-btn-assess reassess-btn" data-id="' + lead.id + '" title="Re-run assessment">Re-assess</button>';
     } else {
@@ -595,6 +603,9 @@ function renderLeads(leads) {
     }
     if (isEnriched && lead.assessed_at) {
       fitCircleHtml += '<div class="lead-assessed-at" title="When this assessment was run">' + escHtml(fmtAssessedAt(lead.assessed_at)) + '</div>';
+    } else if (!isEnriched && lead.rejected_at) {
+      fitCircleHtml += '<div class="lead-assessed-at" title="' + escHtml(lead.rejection_reason || '')
+        + '">' + escHtml(fmtAssessedAt(lead.rejected_at)) + '</div>';
     }
 
     row.innerHTML = '<td>'

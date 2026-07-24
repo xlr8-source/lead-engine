@@ -733,6 +733,17 @@
   .lead-badge-ready{ font-size:11px; font-weight:600; color:var(--teal); display:inline-flex; align-items:center; padding:4px 0; }
   .lead-badge-muted{ font-size:11px; color:var(--text-muted); }
   .lead-badge-error{ font-size:11px; font-weight:600; color:var(--rose); }
+  /* Assessed, then refused storage by the guard pipeline — a deliberate
+     quality decision, not a crash, so it reads as attention-needed rather
+     than error. Still a button: re-assessing is the obvious next action. */
+  .lead-btn-rejected{ color:var(--rose); border-color:var(--rose); background:transparent; }
+  .lead-btn-rejected:hover{ background:var(--rose); color:var(--bg); }
+  /* --rose measures 6.94:1 on the dark background but only 2.57:1 on the
+     light one — below WCAG AA for both text (4.5) and UI components (3).
+     --coral is already in the palette and measures 4.62:1 on light, so each
+     theme uses the token that actually passes rather than a new alias. */
+  body.light-theme .lead-btn-rejected{ color:var(--coral); border-color:var(--coral); }
+  body.light-theme .lead-btn-rejected:hover{ background:var(--coral); color:var(--bg); }
   .col-fit{ width:48px; text-align:center; vertical-align:middle; }
   .col-md{ text-align:center; vertical-align:middle; }
   .col-lg{ text-align:center; vertical-align:middle; }
@@ -1257,7 +1268,7 @@
   <div class="lp-body" id="lp-body"></div>
 </div>
 
-<script src="/static/app.js?v=11"></script>
+<script src="/static/app.js?v=12"></script>
 <script>
   // ── Batch-size chip wiring ───────────────────────────────────────────────
   (function(){
