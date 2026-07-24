@@ -1540,7 +1540,14 @@
         return;
       }
       try {
-        const res = await fetch('/api/disenrich-all', { method: 'POST' });
+        // The endpoint now requires an explicit typed confirmation in the
+        // body — a bare POST is rejected, so this can't fire by accident or
+        // from a page that merely guessed the URL.
+        const res = await fetch('/api/disenrich-all', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ confirm: 'DELETE ALL ENRICHMENTS' })
+        });
         const data = await res.json();
         if (res.ok) {
           showToast('All assessments removed (' + data.disenriched + ' companies)', 'success');

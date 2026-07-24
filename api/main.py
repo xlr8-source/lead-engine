@@ -1,6 +1,7 @@
 import asyncio
 import json
 import os
+import re
 import sys
 import threading
 import uuid
@@ -9,7 +10,7 @@ from datetime import datetime, timezone
 from pathlib import Path
 from typing import Optional
 
-from fastapi import FastAPI, Query, HTTPException
+from fastapi import Body, Depends, FastAPI, Query, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse, FileResponse, StreamingResponse
 from fastapi.staticfiles import StaticFiles
@@ -65,6 +66,7 @@ from ingestion.runner import run_ingestion
 from engine.assessor import assess_company, generate_email, refresh_contacts
 from engine.governor.enforcement import evaluate_storage, get_enforcement_mode
 from engine.activity import registry as run_registry
+from api.security import cors_origins, get_api_key, require_api_key, require_confirmation
 
 _LLM_MODEL = LLM_MODEL
 from api.schemas import (
@@ -85,13 +87,27 @@ init_db()
 
 app = FastAPI(title="PayBrix Lead Engine API", version="1.0.0")
 
+# Was allow_origins=["*"] with allow_credentials=True, while the CORS_ORIGINS
+# documented in .env.example was read by nothing. The dashboard is served
+# same-origin by this app and never needed a CORS grant — the wildcard only
+# handed one to every other page in the operator's browser.
+_CORS_ORIGINS = cors_origins()
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],
-    allow_credentials=True,
-    allow_methods=["*"],
-    allow_headers=["*"],
+    allow_origins=_CORS_ORIGINS,
+    allow_credentials=bool(_CORS_ORIGINS),
+    allow_methods=["GET", "POST"],
+    allow_headers=["Content-Type", "X-API-Key"],
 )
+if _CORS_ORIGINS:
+    logger.info(f"[Security] CORS enabled for: {_CORS_ORIGINS}")
+if get_api_key() is None:
+    logger.warning(
+        "[Security] API_KEY is not set — mutating endpoints are unauthenticated. "
+        "Fine for a localhost-only install; set API_KEY before exposing this to a network."
+    )
+else:
+    logger.info("[Security] API_KEY is set — mutating endpoints require the X-API-Key header.")
 
 
 @app.middleware("http")
@@ -121,6 +137,10 @@ app.mount("/static", StaticFiles(directory=str(FRONTEND_DIR)), name="static")
 # enable) — a real explicit no-store header is what actually stops a
 # browser from serving a stale cached copy of the app shell after a deploy.
 _NO_CACHE_HEADERS = {"Cache-Control": "no-store, no-cache, must-revalidate", "Pragma": "no-cache"}
+
+# Ceiling on one client-supplied log line. events.log is the primary
+# operational record; an uncapped append is a disk-fill primitive.
+_MAX_CLIENT_LOG_CHARS = 500
 
 
 @app.get("/")
@@ -238,7 +258,7 @@ def api_lead_detail(company_id: str):
     return detail
 
 
-@app.post("/api/ingest", response_model=IngestionResponse)
+@app.post("/api/ingest", response_model=IngestionResponse, dependencies=[Depends(require_api_key)])
 def api_ingest():
     logger.info("Starting ingestion process")
     try:
@@ -256,7 +276,7 @@ def api_ingest():
         raise HTTPException(status_code=500, detail=f"Ingestion failed: {str(e)}")
 
 
-@app.post("/api/enrich-all", response_model=BulkEnrichmentResponse)
+@app.post("/api/enrich-all", response_model=BulkEnrichmentResponse, dependencies=[Depends(require_api_key)])
 def api_enrich_all(limit: Optional[int] = Query(None, ge=0)):
     logger.info(f"[API] === BULK ENRICHMENT START === limit: {limit}")
     companies = get_unenriched_companies()
@@ -407,7 +427,7 @@ def _run_contacts_refresh_job(run_id: str, company_id: str, company: dict):
         run_registry.finish_run(run_id, "failed", error=str(e)[:500])
 
 
-@app.post("/api/enrich/{company_id}", response_model=EnrichmentResponse)
+@app.post("/api/enrich/{company_id}", response_model=EnrichmentResponse, dependencies=[Depends(require_api_key)])
 def api_enrich_single(company_id: str):
     _log_event(f"ASSESS CLICKED company={company_id}")
     with get_db_connection() as conn:
@@ -423,7 +443,7 @@ def api_enrich_single(company_id: str):
     return {"status": "running", "run_id": run_id}
 
 
-@app.post("/api/companies/{company_id}/contacts/refresh")
+@app.post("/api/companies/{company_id}/contacts/refresh", dependencies=[Depends(require_api_key)])
 def api_contacts_refresh(company_id: str):
     with get_db_connection() as conn:
         company = conn.execute("SELECT * FROM companies WHERE id = ?", (company_id,)).fetchone()
@@ -481,21 +501,39 @@ async def api_run_events(run_id: str):
     )
 
 
+# Deliberately NOT key-gated: the dashboard calls this on every interaction
+# and has nowhere to keep a credential, so gating it would break diagnostics
+# in precisely the networked deployment where they matter. The finding here
+# was an unbounded, unsanitised append — addressed below. Rate limiting is
+# the remaining follow-up.
 @app.post("/api/log")
 def api_log_event(data: dict):
+    # Was an unbounded, unsanitised append to events.log: no length cap, and
+    # newlines in `msg` forged entries that read like genuine server events in
+    # the file that is this app's primary operational record.
     msg = (data.get("msg") or data.get("event") or "?").strip()
+    msg = re.sub(r"[\r\n]+", " ", msg)[:_MAX_CLIENT_LOG_CHARS]
     if msg:
         _log_event(f"FRONTEND {msg}")
     return {"ok": True}
 
 
-@app.post("/api/disenrich-all")
-def api_disenrich_all():
+@app.post("/api/disenrich-all", dependencies=[Depends(require_api_key)])
+def api_disenrich_all(payload: dict = Body(default=None)):
+    """Permanently deletes every enrichment and every draft email.
+
+    Requires an explicit typed confirmation in the body. This was reachable
+    as a bare unauthenticated POST with no payload, which meant any page in
+    the operator's browser could destroy the whole assessment set.
+    """
+    require_confirmation(payload)
     count = clear_all_enrichments()
+    logger.warning(f"[API] DISENRICH-ALL confirmed — deleted {count} enrichment(s) and all draft emails")
+    _log_event(f"DISENRICH ALL count={count}")
     return {"status": "ok", "disenriched": count}
 
 
-@app.post("/api/email/{company_id}", response_model=EmailResponse)
+@app.post("/api/email/{company_id}", response_model=EmailResponse, dependencies=[Depends(require_api_key)])
 def api_email(company_id: str):
     logger.info(f"[API] Email generation request for company {company_id}")
     company_detail = get_company_detail(company_id)
