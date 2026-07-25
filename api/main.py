@@ -4,13 +4,14 @@ import os
 import re
 import sys
 import threading
+import time
 import uuid
 from concurrent.futures import ThreadPoolExecutor
 from datetime import datetime, timezone
 from pathlib import Path
 from typing import Optional
 
-from fastapi import Body, Depends, FastAPI, Query, HTTPException
+from fastapi import Body, Depends, FastAPI, Query, HTTPException, Request
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse, FileResponse, StreamingResponse
 from fastapi.staticfiles import StaticFiles
@@ -20,6 +21,25 @@ sys.path.insert(0, str(ROOT))
 
 # ── Terminal logging ──
 _EVENTS_LOG = ROOT / "events.log"
+
+# events.log is the primary operational record and is appended to by an
+# endpoint that is reachable from the network on a non-loopback deployment.
+# Uncapped, that is a disk-fill primitive; one rotation keeps recent history
+# without letting the file grow without bound.
+_MAX_EVENTS_LOG_BYTES = 10 * 1024 * 1024
+
+
+def _rotate_events_log_if_needed() -> None:
+    try:
+        if _EVENTS_LOG.exists() and _EVENTS_LOG.stat().st_size >= _MAX_EVENTS_LOG_BYTES:
+            previous = Path(str(_EVENTS_LOG) + ".1")
+            if previous.exists():
+                previous.unlink()
+            _EVENTS_LOG.rename(previous)
+    except Exception:
+        pass
+
+
 def _log_event(msg: str):
     """Write once to OS stdout FD (most reliable) + log file."""
     ts = datetime.now().strftime("%H:%M:%S.%f")[:-3]
@@ -32,14 +52,15 @@ def _log_event(msg: str):
         except Exception:
             pass
     try:
+        _rotate_events_log_if_needed()
         with open(_EVENTS_LOG, "a") as f:
             f.write(line)
             f.flush()
     except Exception:
         pass
 
-from dotenv import load_dotenv
-load_dotenv(ROOT / ".env")
+from engine.env_loader import load_env
+load_env()
 
 from engine.llm.provider import RateLimitError, LLM_MODEL
 
@@ -67,7 +88,17 @@ from ingestion.runner import run_ingestion
 from engine.assessor import assess_company, generate_email, refresh_contacts
 from engine.governor.enforcement import evaluate_storage, get_enforcement_mode
 from engine.activity import registry as run_registry
-from api.security import cors_origins, get_api_key, require_api_key, require_confirmation
+from api.security import (
+    api_docs_enabled,
+    assert_safe_bind,
+    read_only_mode,
+    cors_origins,
+    get_api_key,
+    require_confirmation,
+    require_write_access,
+    resolve_bind_host,
+)
+from api.redaction import redact_company_detail
 
 _LLM_MODEL = LLM_MODEL
 from api.schemas import (
@@ -86,7 +117,22 @@ from api.schemas import (
 
 init_db()
 
-app = FastAPI(title="PayBrix Lead Engine API", version="1.0.0")
+# Fail closed before anything is served: listening beyond loopback with no
+# API_KEY would leave every mutating endpoint reachable by the whole private
+# network on a non-loopback deployment.
+_BIND_HOST = resolve_bind_host()
+assert_safe_bind(_BIND_HOST)
+
+# Swagger's "Try it out" is a working console for disenrich-all, and the
+# confirmation string it needs is already in the client JS — off unless asked.
+_DOCS = api_docs_enabled()
+app = FastAPI(
+    title="PayBrix Lead Engine API",
+    version="1.0.0",
+    docs_url="/docs" if _DOCS else None,
+    redoc_url="/redoc" if _DOCS else None,
+    openapi_url="/openapi.json" if _DOCS else None,
+)
 
 # Was allow_origins=["*"] with allow_credentials=True, while the CORS_ORIGINS
 # documented in .env.example was read by nothing. The dashboard is served
@@ -142,6 +188,38 @@ _NO_CACHE_HEADERS = {"Cache-Control": "no-store, no-cache, must-revalidate", "Pr
 # Ceiling on one client-supplied log line. events.log is the primary
 # operational record; an uncapped append is a disk-fill primitive.
 _MAX_CLIENT_LOG_CHARS = 500
+
+# Per-IP rate limit on /api/log. The endpoint stays un-gated by API_KEY (the
+# dashboard calls it constantly and has nowhere to keep a credential), so the
+# limit is what stops a reachable port being used to flood the disk.
+_LOG_RATE_LIMIT_PER_MIN = 60
+_LOG_RATE_WINDOW_S = 60.0
+_log_hits: dict[str, list[float]] = {}
+_log_rate_lock = threading.Lock()
+
+
+def reset_log_rate_limiter() -> None:
+    """Clear rate-limit state. Used by tests; harmless in production."""
+    with _log_rate_lock:
+        _log_hits.clear()
+
+
+def _log_rate_limit_ok(client_ip: str) -> bool:
+    now = time.monotonic()
+    cutoff = now - _LOG_RATE_WINDOW_S
+    with _log_rate_lock:
+        hits = [t for t in _log_hits.get(client_ip, []) if t > cutoff]
+        if len(hits) >= _LOG_RATE_LIMIT_PER_MIN:
+            _log_hits[client_ip] = hits
+            return False
+        hits.append(now)
+        _log_hits[client_ip] = hits
+        # Bound the key space so a spoofed-source flood can't grow this dict
+        # without limit.
+        if len(_log_hits) > 1024:
+            for stale_ip in [ip for ip, ts in _log_hits.items() if not ts or max(ts) < cutoff]:
+                del _log_hits[stale_ip]
+        return True
 
 
 @app.get("/")
@@ -256,10 +334,15 @@ def api_lead_detail(company_id: str):
     detail = get_company_detail(company_id)
     if not detail:
         raise HTTPException(status_code=404, detail="Company not found")
+    if read_only_mode():
+        # Named individuals at regulated firms, their direct contact channels
+        # and the drafts addressed to them are personal data; only viewers
+        # with a lawful basis should see them.
+        detail = redact_company_detail(detail)
     return detail
 
 
-@app.post("/api/ingest", response_model=IngestionResponse, dependencies=[Depends(require_api_key)])
+@app.post("/api/ingest", response_model=IngestionResponse, dependencies=[Depends(require_write_access)])
 def api_ingest():
     logger.info("Starting ingestion process")
     try:
@@ -277,7 +360,7 @@ def api_ingest():
         raise HTTPException(status_code=500, detail=f"Ingestion failed: {str(e)}")
 
 
-@app.post("/api/enrich-all", response_model=BulkEnrichmentResponse, dependencies=[Depends(require_api_key)])
+@app.post("/api/enrich-all", response_model=BulkEnrichmentResponse, dependencies=[Depends(require_write_access)])
 def api_enrich_all(limit: Optional[int] = Query(None, ge=0)):
     logger.info(f"[API] === BULK ENRICHMENT START === limit: {limit}")
     companies = get_unenriched_companies()
@@ -449,7 +532,7 @@ def _run_contacts_refresh_job(run_id: str, company_id: str, company: dict):
         run_registry.finish_run(run_id, "failed", error=str(e)[:500])
 
 
-@app.post("/api/enrich/{company_id}", response_model=EnrichmentResponse, dependencies=[Depends(require_api_key)])
+@app.post("/api/enrich/{company_id}", response_model=EnrichmentResponse, dependencies=[Depends(require_write_access)])
 def api_enrich_single(company_id: str):
     _log_event(f"ASSESS CLICKED company={company_id}")
     with get_db_connection() as conn:
@@ -465,7 +548,7 @@ def api_enrich_single(company_id: str):
     return {"status": "running", "run_id": run_id}
 
 
-@app.post("/api/companies/{company_id}/contacts/refresh", dependencies=[Depends(require_api_key)])
+@app.post("/api/companies/{company_id}/contacts/refresh", dependencies=[Depends(require_write_access)])
 def api_contacts_refresh(company_id: str):
     with get_db_connection() as conn:
         company = conn.execute("SELECT * FROM companies WHERE id = ?", (company_id,)).fetchone()
@@ -529,10 +612,16 @@ async def api_run_events(run_id: str):
 # was an unbounded, unsanitised append — addressed below. Rate limiting is
 # the remaining follow-up.
 @app.post("/api/log")
-def api_log_event(data: dict):
+def api_log_event(data: dict, request: Request):
     # Was an unbounded, unsanitised append to events.log: no length cap, and
     # newlines in `msg` forged entries that read like genuine server events in
     # the file that is this app's primary operational record.
+    # Rate limited per source IP: the endpoint stays un-gated by API_KEY (the
+    # dashboard calls it constantly and has nowhere to keep a credential), so
+    # the limit is what stops a reachable port flooding the disk.
+    client_ip = request.client.host if request.client else "unknown"
+    if not _log_rate_limit_ok(client_ip):
+        raise HTTPException(status_code=429, detail="Too many log events; slow down.")
     msg = (data.get("msg") or data.get("event") or "?").strip()
     msg = re.sub(r"[\r\n]+", " ", msg)[:_MAX_CLIENT_LOG_CHARS]
     if msg:
@@ -540,7 +629,7 @@ def api_log_event(data: dict):
     return {"ok": True}
 
 
-@app.post("/api/disenrich-all", dependencies=[Depends(require_api_key)])
+@app.post("/api/disenrich-all", dependencies=[Depends(require_write_access)])
 def api_disenrich_all(payload: dict = Body(default=None)):
     """Permanently deletes every enrichment and every draft email.
 
@@ -555,7 +644,7 @@ def api_disenrich_all(payload: dict = Body(default=None)):
     return {"status": "ok", "disenriched": count}
 
 
-@app.post("/api/email/{company_id}", response_model=EmailResponse, dependencies=[Depends(require_api_key)])
+@app.post("/api/email/{company_id}", response_model=EmailResponse, dependencies=[Depends(require_write_access)])
 def api_email(company_id: str):
     logger.info(f"[API] Email generation request for company {company_id}")
     company_detail = get_company_detail(company_id)

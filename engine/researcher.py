@@ -16,6 +16,7 @@ sys.path.insert(0, str(ROOT))
 
 # Tavily search (replaces DuckDuckGo scraper)
 from engine.research.tavily_search import search_tavily_sync
+from engine.net_guard import safe_get
 
 # 5s (was 10s): dead/parked .ie domains dominated worst-case research time —
 # every unreachable candidate cost a full timeout slot.
@@ -88,8 +89,13 @@ def _fetch_text(url: str, max_chars: int = 8000, blocked: Optional[list] = None)
     real site, Cloudflare-protected, our fetch gets a 403 challenge page —
     we deliberately do not try to get past that)."""
     try:
-        with httpx.Client(timeout=FETCH_TIMEOUT, follow_redirects=True) as client:
-            resp = client.get(url, headers={"User-Agent": USER_AGENT})
+        with httpx.Client(timeout=FETCH_TIMEOUT, follow_redirects=False) as client:
+            # Redirects are followed manually with every hop re-validated —
+            # a public first hop that 302s into RFC1918/link-local space was
+            # the whole SSRF vector. safe_get returns None on a blocked hop.
+            resp = safe_get(client, url, headers={"User-Agent": USER_AGENT})
+            if resp is None:
+                return None
             if blocked is not None and _is_bot_challenge(resp):
                 blocked.append(url)
                 return None
@@ -240,8 +246,10 @@ def _fetch_site_links(base_url: str, max_links: int = 6) -> list[str]:
     naming (MyLife's 'team' category page) get found at all — the fixed path
     list alone cannot cover every site's routing."""
     try:
-        with httpx.Client(timeout=FETCH_TIMEOUT, follow_redirects=True) as client:
-            resp = client.get(base_url, headers={"User-Agent": USER_AGENT})
+        with httpx.Client(timeout=FETCH_TIMEOUT, follow_redirects=False) as client:
+            resp = safe_get(client, base_url, headers={"User-Agent": USER_AGENT})
+            if resp is None:
+                return []
             resp.raise_for_status()
             soup = BeautifulSoup(resp.text, "html.parser")
     except Exception:

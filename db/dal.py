@@ -691,8 +691,18 @@ def get_company_detail(company_id: str) -> Optional[dict]:
         if not company:
             return None
 
+        # Explicit allow-list rather than SELECT *. `llm_raw_response` holds
+        # the unfiltered model output and has no consumer in the UI, but was
+        # being returned to every caller of the detail endpoint — which is
+        # reachable by anyone who can reach the port.
         enrichment = conn.execute(
-            "SELECT * FROM enrichment WHERE company_id = ? ORDER BY generated_at DESC LIMIT 1",
+            """
+            SELECT id, company_id, employee_band, recommended_angle, billing_pain_points,
+                   qualification_score, llm_model, assessment_breakdown,
+                   narrative_assessment, signal_strength,
+                   guard_passed, guard_score, guard_failures, generated_at
+            FROM enrichment WHERE company_id = ? ORDER BY generated_at DESC LIMIT 1
+            """,
             (company_id,),
         ).fetchone()
 

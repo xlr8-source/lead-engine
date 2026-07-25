@@ -1,0 +1,15 @@
+.env
+.env.example
+.claude/
+.agents/
+.superpowers/
+.git/
+.git.pre-fresh-backup-*/
+.github/
+data/
+tests/
+scratch/
+*.log
+*.db
+__pycache__/
+.pytest_cache/

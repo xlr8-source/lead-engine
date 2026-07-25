@@ -67,7 +67,9 @@ class CompanyDetailResponse(BaseModel):
     principal_object: Optional[str] = None
     source: str
     ingested_at: str
-    raw_payload: Optional[str] = None
+    # raw_payload deliberately absent: it is the full raw ingest row, has no
+    # consumer in the frontend, and the detail endpoint is reachable by every
+    # viewer on a non-loopback deployment.
     enrichment: Optional[dict] = None
     rejection: Optional[dict] = None
     email: Optional[dict] = None
