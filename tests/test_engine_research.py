@@ -444,6 +444,7 @@ def test_assess_company_reports_stage_timings(monkeypatch):
 
 
 def test_enrich_all_runs_assessments_concurrently(monkeypatch):
+    from conftest import wait_for_run
     """The bulk endpoint processed firms strictly serially — at ~136s/firm
     that's the whole night for 30 firms. Must overlap assessments."""
     import time as _time
@@ -458,7 +459,7 @@ def test_enrich_all_runs_assessments_concurrently(monkeypatch):
 
     monkeypatch.setenv("ASSESS_CONCURRENCY", "3")
     companies = [{"id": f"c{i}", "legal_name": f"Firm {i}"} for i in range(6)]
-    monkeypatch.setattr(api_main, "get_unenriched_companies", lambda: companies)
+    monkeypatch.setattr(api_main, "get_unenriched_companies", lambda limit=None: companies)
 
     lock = _threading.Lock()
     state = {"current": 0, "max": 0}
@@ -484,9 +485,11 @@ def test_enrich_all_runs_assessments_concurrently(monkeypatch):
     resp = client.post("/api/enrich-all")
 
     assert resp.status_code == 200
-    body = resp.json()
-    assert body["enriched"] == 6
-    assert body["failed"] == 0
+    # The endpoint now returns as soon as the run is queued, so the outcome
+    # lives on the run rather than in the response body.
+    final = wait_for_run(client, resp.json()["run_id"])
+    assert final["progress"]["done"] == 6
+    assert final["progress"]["failed"] == 0
     assert state["max"] >= 2, f"assessments never overlapped (max concurrent: {state['max']})"
 
 

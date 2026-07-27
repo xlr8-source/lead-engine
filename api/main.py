@@ -360,28 +360,39 @@ def api_ingest():
         raise HTTPException(status_code=500, detail=f"Ingestion failed: {str(e)}")
 
 
-@app.post("/api/enrich-all", response_model=BulkEnrichmentResponse, dependencies=[Depends(require_write_access)])
-def api_enrich_all(limit: Optional[int] = Query(None, ge=0)):
-    logger.info(f"[API] === BULK ENRICHMENT START === limit: {limit}")
-    companies = get_unenriched_companies()
-    if limit and limit > 0:
-        companies = companies[:limit]
+# Sentinel company_id for the bulk run. RunRegistry keys active runs by
+# (company_id, kind); a bulk run spans every company, so it needs a stable key
+# of its own — which is also what makes "only one bulk run at a time" fall out
+# of the existing get_or_start_run() rather than needing separate locking.
+BULK_RUN_KEY = "__all__"
+
+
+def _run_bulk_enrich_job(run_id: str, companies: list[dict], concurrency: int) -> None:
+    """Assess every company in `companies`, reporting progress on `run_id`.
+
+    Runs in a background thread. Previously this was the request handler
+    itself: at ~2,400 register records and ~20s per assessment it was a
+    multi-hour HTTP request that no client would hold open, so the run always
+    died by timeout with no record of how far it had got.
+    """
     total = len(companies)
+    run_registry.set_progress(run_id, total=total)
+    logger.info(f"[API] === BULK ENRICHMENT START === {total} companies (concurrency={concurrency})")
+    _log_event(f"BULK START run_id={run_id} total={total}")
 
-    # Assessments are independent (own research, own LLM call, own DB write)
-    # — running them serially made a 30-firm batch take 30 x full assessment
-    # time. Conservative default of 3 workers respects LLM rate limits;
-    # tune via ASSESS_CONCURRENCY.
-    concurrency = max(1, int(os.getenv("ASSESS_CONCURRENCY", "3")))
-    logger.info(f"[API] Processing {total} companies (concurrency={concurrency})")
-
-    abort = threading.Event()
+    abort = threading.Event()   # set on rate limit — stops handing out new work
+    errors: list[dict] = []
+    errors_lock = threading.Lock()
 
     def _assess_one(numbered):
         idx, c = numbered
         company_name = c.get("legal_name", "unknown")
-        if abort.is_set():
-            return ("skipped", c, None)
+        # Checked before each company rather than mid-assessment: an
+        # assessment already in flight finishes and is stored, so cancelling
+        # never leaves a half-written record.
+        if abort.is_set() or run_registry.is_cancelled(run_id):
+            run_registry.bump_progress(run_id, skipped=1)
+            return "skipped"
         logger.info(f"[API] [{idx}/{total}] Processing: {company_name}")
         try:
             enrichment = assess_company(c)
@@ -389,49 +400,99 @@ def api_enrich_all(limit: Optional[int] = Query(None, ge=0)):
             if not decision.store:
                 logger.warning(f"[API] [{idx}/{total}] REJECTED: {company_name} - {decision.reason}")
                 _record_rejection_safely(c["id"], enrichment, decision.reason)
-                return ("rejected", c, RuntimeError(decision.reason))
+                run_registry.bump_progress(run_id, done=1, rejected=1)
+                with errors_lock:
+                    errors.append({"company_id": c.get("id"), "company_name": company_name,
+                                   "error": decision.reason})
+                return "rejected"
             with get_db_connection() as conn:
                 upsert_enrichment(conn, enrichment)
             logger.info(f"[API] [{idx}/{total}] SUCCESS: {company_name}")
-            return ("ok", c, None)
+            run_registry.bump_progress(run_id, done=1)
+            return "ok"
         except RateLimitError as e:
-            # Stop handing out new work; in-flight assessments finish.
             abort.set()
-            logger.error(f"[API] [{idx}/{total}] RATE LIMIT: {company_name} - {str(e)}")
-            return ("rate_limited", c, e)
+            logger.error(f"[API] [{idx}/{total}] RATE LIMIT: {company_name} - {e}")
+            run_registry.bump_progress(run_id, failed=1)
+            return "rate_limited"
         except Exception as e:
-            logger.error(f"[API] [{idx}/{total}] FAILED: {company_name} - {str(e)}")
-            return ("failed", c, e)
+            logger.error(f"[API] [{idx}/{total}] FAILED: {company_name} - {e}")
+            run_registry.bump_progress(run_id, done=1, failed=1)
+            with errors_lock:
+                errors.append({"company_id": c.get("id"), "company_name": company_name,
+                               "error": str(e)[:300]})
+            return "failed"
 
-    with ThreadPoolExecutor(max_workers=concurrency) as pool:
-        outcomes = list(pool.map(_assess_one, enumerate(companies, 1)))
+    try:
+        with ThreadPoolExecutor(max_workers=concurrency) as pool:
+            outcomes = list(pool.map(_assess_one, enumerate(companies, 1)))
 
-    count = sum(1 for status_, _, _ in outcomes if status_ == "ok")
-    rejected = sum(1 for status_, _, _ in outcomes if status_ == "rejected")
-    rate_limited = any(status_ == "rate_limited" for status_, _, _ in outcomes)
-    # Guard rejections are reported separately from errors: nothing broke, the
-    # assessment was produced and deliberately not kept.
-    errors = [
-        {"company_id": c.get("id"), "company_name": c.get("legal_name"), "error": str(err)}
-        for status_, c, err in outcomes if status_ in ("failed", "rejected")
-    ][:10]
+        progress = (run_registry.get_run_status(run_id) or {}).get("progress", {})
+        if run_registry.is_cancelled(run_id):
+            run_registry.finish_run(run_id, "cancelled",
+                                    error=f"Cancelled after {progress.get('done', 0)}/{total}")
+            logger.warning(f"[API] === BULK ENRICHMENT CANCELLED === {progress.get('done', 0)}/{total}")
+            _log_event(f"BULK CANCELLED run_id={run_id} done={progress.get('done', 0)}")
+        elif any(o == "rate_limited" for o in outcomes):
+            run_registry.finish_run(run_id, "failed", error="API rate limit reached")
+            logger.error(f"[API] === BULK ENRICHMENT RATE-LIMITED === {progress.get('done', 0)}/{total}")
+            _log_event(f"BULK RATE_LIMIT run_id={run_id}")
+        else:
+            run_registry.finish_run(run_id, "complete")
+            logger.info(
+                f"[API] === BULK ENRICHMENT COMPLETE === {progress.get('done', 0)}/{total}, "
+                f"{progress.get('rejected', 0)} rejected by guards (mode={get_enforcement_mode()})"
+            )
+            _log_event(f"BULK COMPLETE run_id={run_id} done={progress.get('done', 0)}")
+    except Exception as e:
+        logger.error(f"[API] Bulk enrichment job crashed: {e}", exc_info=True)
+        run_registry.finish_run(run_id, "failed", error=str(e)[:500])
 
-    if rate_limited:
-        logger.error(f"[API] === BULK ENRICHMENT RATE-LIMITED === {count}/{total} completed before abort")
-        raise HTTPException(status_code=429, detail="API rate limit reached. Please try again later.")
 
-    logger.info(
-        f"[API] === BULK ENRICHMENT COMPLETE === {count}/{total} successful, "
-        f"{rejected} rejected by guards (mode={get_enforcement_mode()})"
-    )
-    return {
-        "status": "ok",
-        "attempted": total,
-        "enriched": count,
-        "rejected": rejected,
-        "failed": total - count - rejected,
-        "errors": errors,
-    }
+@app.post("/api/enrich-all", response_model=BulkEnrichmentResponse, dependencies=[Depends(require_write_access)])
+def api_enrich_all(limit: Optional[int] = Query(None, ge=0)):
+    """Start a bulk assessment run and return immediately with its run_id.
+
+    Poll `/api/runs/{run_id}` for progress; `POST /api/runs/{run_id}/cancel`
+    stops it.
+    """
+    run_id, is_new = run_registry.get_or_start_run(BULK_RUN_KEY, "enrich_all")
+    if not is_new:
+        # A second click joins the run in flight rather than starting a
+        # parallel one that would double the API spend.
+        logger.info(f"[API] Bulk enrichment already running: {run_id}")
+        return {"status": "running", "run_id": run_id, "attempted": 0,
+                "enriched": 0, "rejected": 0, "failed": 0, "errors": []}
+
+    companies = get_unenriched_companies(limit=limit)
+    total = len(companies)
+
+    # Assessments are independent (own research, own LLM call, own DB write).
+    # Conservative default of 3 workers respects LLM rate limits; tune via
+    # ASSESS_CONCURRENCY.
+    concurrency = max(1, int(os.getenv("ASSESS_CONCURRENCY", "3")))
+
+    threading.Thread(
+        target=_run_bulk_enrich_job, args=(run_id, companies, concurrency), daemon=True
+    ).start()
+
+    return {"status": "running", "run_id": run_id, "attempted": total,
+            "enriched": 0, "rejected": 0, "failed": 0, "errors": []}
+
+
+@app.post("/api/runs/{run_id}/cancel", dependencies=[Depends(require_write_access)])
+def api_cancel_run(run_id: str):
+    """Ask a running job to stop.
+
+    Cooperative: an assessment already in flight completes and is stored, so
+    cancelling never leaves a half-written record. Nothing new is started.
+    """
+    if not run_registry.get_run_status(run_id):
+        raise HTTPException(status_code=404, detail="Run not found")
+    run_registry.request_cancel(run_id)
+    logger.warning(f"[API] Cancel requested for run {run_id}")
+    _log_event(f"RUN CANCEL REQUESTED run_id={run_id}")
+    return {"status": "cancelling", "run_id": run_id}
 
 
 def _record_rejection_safely(company_id: str, enrichment: dict, reason: str) -> None:

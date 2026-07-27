@@ -6,8 +6,8 @@ from dataclasses import dataclass, field, asdict
 from datetime import datetime, timezone
 from typing import Callable, Literal, Optional
 
-Status = Literal["pending", "running", "complete", "failed"]
-Kind = Literal["assess", "outreach", "contacts_refresh"]
+Status = Literal["pending", "running", "complete", "failed", "cancelled"]
+Kind = Literal["assess", "outreach", "contacts_refresh", "enrich_all"]
 OnEvent = Callable[[str, str, str, Optional[dict]], None]  # (step, label, status, metadata)
 
 
@@ -39,6 +39,15 @@ class _Run:
     error: Optional[str] = None
     created_at: float = field(default_factory=time.time)
     finished_at: Optional[float] = None
+    # Bulk runs process many companies, so a single status string can't say
+    # how far along it is. Counters are cheap and are what the UI needs.
+    progress: dict = field(default_factory=lambda: {
+        "total": 0, "done": 0, "failed": 0, "rejected": 0, "skipped": 0,
+    })
+    # Cooperative cancellation. A bulk run spends real money per company, so
+    # "stop" has to actually stop handing out new work — the worker checks
+    # this between companies rather than being killed mid-assessment.
+    cancel_requested: bool = False
 
 
 class RunRegistry:
@@ -107,7 +116,7 @@ class RunRegistry:
                 metadata=metadata or {},
             ))
 
-    def finish_run(self, run_id: str, status: Literal["complete", "failed"], error: str | None = None) -> None:
+    def finish_run(self, run_id: str, status: Literal["complete", "failed", "cancelled"], error: str | None = None) -> None:
         with self._lock:
             run = self._runs.get(run_id)
             if not run:
@@ -144,6 +153,41 @@ class RunRegistry:
             new = [e.to_dict() for e in run.events[since_index:]]
             return new, run.status, len(run.events)
 
+    def set_progress(self, run_id: str, **counters) -> None:
+        """Set progress counters absolutely (e.g. total=2400)."""
+        with self._lock:
+            run = self._runs.get(run_id)
+            if not run:
+                return
+            run.progress.update(counters)
+
+    def bump_progress(self, run_id: str, **counters) -> None:
+        """Increment progress counters (e.g. done=1, failed=1)."""
+        with self._lock:
+            run = self._runs.get(run_id)
+            if not run:
+                return
+            for key, delta in counters.items():
+                run.progress[key] = run.progress.get(key, 0) + delta
+
+    def request_cancel(self, run_id: str) -> bool:
+        """Ask a run to stop. Returns False if the run is unknown.
+
+        Advisory: the worker decides when to honour it, so an assessment
+        already in flight completes rather than being abandoned half-written.
+        """
+        with self._lock:
+            run = self._runs.get(run_id)
+            if not run:
+                return False
+            run.cancel_requested = True
+            return True
+
+    def is_cancelled(self, run_id: str) -> bool:
+        with self._lock:
+            run = self._runs.get(run_id)
+            return bool(run and run.cancel_requested)
+
     def get_run_status(self, run_id: str) -> dict | None:
         with self._lock:
             run = self._runs.get(run_id)
@@ -152,6 +196,8 @@ class RunRegistry:
             return {
                 "run_id": run.run_id, "company_id": run.company_id, "kind": run.kind,
                 "status": run.status, "error": run.error,
+                "progress": dict(run.progress),
+                "cancel_requested": run.cancel_requested,
                 "events": [e.to_dict() for e in run.events],
             }
 

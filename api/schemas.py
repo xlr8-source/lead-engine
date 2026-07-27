@@ -105,8 +105,13 @@ class BulkEnrichmentRequest(BaseModel):
 
 
 class BulkEnrichmentResponse(BaseModel):
-    """Response model for bulk enrichment operations."""
+    """Response model for bulk enrichment.
+
+    The endpoint returns as soon as the run is queued, so the counts here are
+    the starting state, not a result — poll /api/runs/{run_id} for progress.
+    """
     status: str
+    run_id: Optional[str] = None
     attempted: int
     enriched: int
     rejected: int = 0   # assessed cleanly, then blocked by the guard pipeline

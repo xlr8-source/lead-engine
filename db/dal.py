@@ -757,20 +757,31 @@ def get_company_detail(company_id: str) -> Optional[dict]:
     return result
 
 
-def get_unenriched_companies() -> list[dict]:
+def get_unenriched_companies(limit: Optional[int] = None) -> list[dict]:
     """
     Return companies that have no enrichment record yet.
+
+    `limit` is applied in SQL. It used to be applied by the caller slicing the
+    returned list, which meant asking for 10 companies still loaded every
+    unenriched row in the register first.
+
+    A limit of 0 or less is treated as "no limit" rather than "return
+    nothing", matching how the endpoint already interprets `?limit=0`.
     """
+    query = """
+        SELECT c.* FROM companies c
+        LEFT JOIN enrichment e ON e.company_id = c.id
+        WHERE e.id IS NULL
+          AND LOWER(c.cro_status) = 'normal'
+        ORDER BY c.ingested_at ASC
+    """
+    params: list[Any] = []
+    if limit is not None and limit > 0:
+        query += " LIMIT ?"
+        params.append(limit)
+
     with get_db_connection() as conn:
-        rows = conn.execute(
-            """
-            SELECT c.* FROM companies c
-            LEFT JOIN enrichment e ON e.company_id = c.id
-            WHERE e.id IS NULL
-              AND LOWER(c.cro_status) = 'normal'
-            ORDER BY c.ingested_at ASC
-            """
-        ).fetchall()
+        rows = conn.execute(query, params).fetchall()
     return [dict(r) for r in rows]
 
 

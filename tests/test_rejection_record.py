@@ -162,7 +162,7 @@ def _api(monkeypatch, recorded):
         yield None
 
     monkeypatch.setattr(api_main, "get_unenriched_companies",
-                        lambda: [{"id": "c1", "legal_name": "Acme Insurance Limited"}])
+                        lambda limit=None: [{"id": "c1", "legal_name": "Acme Insurance Limited"}])
     monkeypatch.setattr(api_main, "assess_company",
                         lambda company, on_event=None: _rejected_enrichment())
     monkeypatch.setattr(api_main, "get_db_connection", fake_conn)
@@ -180,9 +180,12 @@ def test_block_mode_records_the_rejection_through_the_api(monkeypatch):
     recorded = []
     api_main = _api(monkeypatch, recorded)
 
-    resp = TestClient(api_main.app).post("/api/enrich-all")
+    from conftest import wait_for_run
+    client = TestClient(api_main.app)
+    resp = client.post("/api/enrich-all")
 
     assert resp.status_code == 200
+    wait_for_run(client, resp.json()["run_id"])
     assert len(recorded) == 1
     company_id, kwargs = recorded[0]
     assert company_id == "c1"
@@ -205,12 +208,14 @@ def test_a_failure_to_record_the_rejection_does_not_reclassify_the_outcome(monke
 
     monkeypatch.setattr(api_main, "record_rejection", boom)
 
-    resp = TestClient(api_main.app).post("/api/enrich-all")
+    from conftest import wait_for_run
+    client = TestClient(api_main.app)
+    resp = client.post("/api/enrich-all")
 
     assert resp.status_code == 200
-    body = resp.json()
-    assert body["rejected"] == 1
-    assert body["failed"] == 0
+    final = wait_for_run(client, resp.json()["run_id"])
+    assert final["progress"]["rejected"] == 1
+    assert final["progress"]["failed"] == 0
 
 
 def test_warn_mode_records_no_rejection(monkeypatch):

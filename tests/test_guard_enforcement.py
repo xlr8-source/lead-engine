@@ -280,7 +280,7 @@ def test_block_mode_does_not_write_a_guard_failing_assessment(monkeypatch):
 
     monkeypatch.setenv("GUARD_ENFORCEMENT", "block")
     monkeypatch.setattr(api_main, "get_unenriched_companies",
-                        lambda: [{"id": "c1", "legal_name": "Acme Insurance Limited"}])
+                        lambda limit=None: [{"id": "c1", "legal_name": "Acme Insurance Limited"}])
     monkeypatch.setattr(api_main, "assess_company",
                         lambda company, on_event=None: _failing_enrichment())
 
@@ -293,13 +293,16 @@ def test_block_mode_does_not_write_a_guard_failing_assessment(monkeypatch):
     monkeypatch.setattr(api_main, "get_db_connection", fake_conn)
     monkeypatch.setattr(api_main, "upsert_enrichment", lambda conn, e: stored.append(e))
 
-    resp = TestClient(api_main.app).post("/api/enrich-all")
+    from conftest import wait_for_run
+    client = TestClient(api_main.app)
+    resp = client.post("/api/enrich-all")
 
     assert resp.status_code == 200
+    # The run is now backgrounded, so the outcome is read from the run rather
+    # than the response body.
+    final = wait_for_run(client, resp.json()["run_id"])
     assert stored == [], "a guard-failing assessment was persisted in block mode"
-    body = resp.json()
-    assert body["rejected"] == 1
-    assert body["enriched"] == 0
+    assert final["progress"]["rejected"] == 1
 
 
 def test_warn_mode_still_writes_a_guard_failing_assessment(monkeypatch):
@@ -312,7 +315,7 @@ def test_warn_mode_still_writes_a_guard_failing_assessment(monkeypatch):
 
     monkeypatch.setenv("GUARD_ENFORCEMENT", "warn")
     monkeypatch.setattr(api_main, "get_unenriched_companies",
-                        lambda: [{"id": "c1", "legal_name": "Acme Insurance Limited"}])
+                        lambda limit=None: [{"id": "c1", "legal_name": "Acme Insurance Limited"}])
     monkeypatch.setattr(api_main, "assess_company",
                         lambda company, on_event=None: _failing_enrichment())
 
@@ -325,9 +328,12 @@ def test_warn_mode_still_writes_a_guard_failing_assessment(monkeypatch):
     monkeypatch.setattr(api_main, "get_db_connection", fake_conn)
     monkeypatch.setattr(api_main, "upsert_enrichment", lambda conn, e: stored.append(e))
 
-    resp = TestClient(api_main.app).post("/api/enrich-all")
+    from conftest import wait_for_run
+    client = TestClient(api_main.app)
+    resp = client.post("/api/enrich-all")
 
     assert resp.status_code == 200
+    final = wait_for_run(client, resp.json()["run_id"])
     assert len(stored) == 1
-    assert resp.json()["enriched"] == 1
-    assert resp.json()["rejected"] == 0
+    assert final["progress"]["done"] == 1
+    assert final["progress"]["rejected"] == 0
